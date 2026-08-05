@@ -12,17 +12,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 const API = process.env.NEXT_PUBLIC_API_URL;
 
 export default function Dashboard() {
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState({ totalLeads: 0, emailsFound: 0, whatsappClicks: 0, campaignsSent: 0 });
   const [countryData, setCountryData] = useState([]);
   const [perfData, setPerfData] = useState({ whatsapp: [], emails: [] });
   const [geoData, setGeoData] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchData();
+    loadDashboard();
   }, []);
 
-  const fetchData = async () => {
+  const loadDashboard = async () => {
     try {
       const [statsRes, countryRes, perfRes, geoRes] = await Promise.all([
         fetch(`${API}/dashboard/stats`).then(r => r.json()),
@@ -30,12 +30,13 @@ export default function Dashboard() {
         fetch(`${API}/dashboard/performance`).then(r => r.json()),
         fetch(`${API}/dashboard/geo-data`).then(r => r.json()),
       ]);
-      setStats(statsRes);
-      setCountryData(countryRes);
-      setPerfData(perfRes);
-      setGeoData(geoRes);
+      
+      setStats(statsRes || { totalLeads: 0, emailsFound: 0, whatsappClicks: 0, campaignsSent: 0 });
+      setCountryData(Array.isArray(countryRes) ? countryRes : []);
+      setPerfData(perfRes || { whatsapp: [], emails: [] });
+      setGeoData(geoRes || {});
     } catch (e) {
-      console.error("Dashboard fetch error:", e);
+      console.error("Dashboard load error:", e);
     }
     setLoading(false);
   };
@@ -44,12 +45,10 @@ export default function Dashboard() {
     return (
       <div className="space-y-8">
         <Skeleton className="h-10 w-64 bg-white/5" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-28 bg-white/5 rounded-xl" />
-          ))}
+        <div className="grid grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 bg-white/5 rounded-xl" />)}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-2 gap-6">
           <Skeleton className="h-80 bg-white/5 rounded-xl" />
           <Skeleton className="h-80 bg-white/5 rounded-xl" />
         </div>
@@ -68,12 +67,10 @@ export default function Dashboard() {
       </div>
 
       <StatsCards data={stats} />
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <CountryBarChart data={countryData} />
         <PerformanceAreaChart data={perfData} />
       </div>
-
       <WorldHeatMap data={geoData} />
       <QuickActions />
     </motion.div>
