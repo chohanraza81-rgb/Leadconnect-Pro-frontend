@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,16 +7,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, RefreshCw, Phone, Send, Sparkles, Loader2, CheckCircle2 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Search, RefreshCw, Phone, Send, Sparkles, Loader2, Mail, MapPin, ChevronDown } from "lucide-react";
 import { motion } from "framer-motion";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
-const PAKISTAN_CITIES = [
-  "Karachi", "Lahore", "Islamabad", "Rawalpindi",
-  "Faisalabad", "Multan", "Peshawar", "Quetta",
-  "Sialkot", "Gujranwala"
-];
+const STATUS_OPTIONS = ["new", "contacted", "replied", "qualified", "converted"];
 
 export default function CampaignManager() {
   const [leads, setLeads] = useState<any[]>([]);
@@ -27,8 +23,8 @@ export default function CampaignManager() {
   const [message, setMessage] = useState("");
 
   // Filters
-  const [filters, setFilters] = useState({ niche: "all", country: "PK", city: "all" });
-  const [filterOptions, setFilterOptions] = useState({ niches: [] });
+  const [filters, setFilters] = useState({ niche: "all", country: "all", city: "all" });
+  const [filterOptions, setFilterOptions] = useState({ niches: [], countries: [] });
 
   // AI generation
   const [aiNiche, setAiNiche] = useState("");
@@ -49,6 +45,7 @@ export default function CampaignManager() {
 
       const res = await fetch(`${API}/leads?${params.toString()}`);
       let data = await res.json();
+      // Only leads with phone numbers
       data = data.filter((l: any) => l.phone);
       setLeads(data);
     } catch {
@@ -60,19 +57,34 @@ export default function CampaignManager() {
   useEffect(() => {
     fetchLeads();
     fetch(`${API}/leads/filters`).then(r => r.json()).then(d => {
-      setFilterOptions({ niches: d.niches || [] });
+      setFilterOptions({ niches: d.niches || [], countries: d.countries || [] });
     }).catch(() => {});
   }, [fetchLeads]);
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
   const toggleAll = (checked: boolean) => setSelectedIds(checked ? leads.map(l => l._id) : []);
-  const toggleOne = (id: string) => setSelectedIds(prev =>
-    prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-  );
+
+  const updateLeadStatus = async (leadId: string, newStatus: string) => {
+    try {
+      await fetch(`${API}/leads/${leadId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      setLeads(prev => prev.map(l => l._id === leadId ? { ...l, status: newStatus } : l));
+      toast({ title: `Status updated to ${newStatus}` });
+    } catch {
+      toast({ title: "Failed to update status", variant: "destructive" });
+    }
+  };
 
   const openWhatsAppBulk = () => {
     const selected = leads.filter(l => selectedIds.includes(l._id));
     if (selected.length === 0) {
-      toast({ title: "Select leads with phone numbers", variant: "destructive" });
+      toast({ title: "Select at least one lead with a phone number", variant: "destructive" });
       return;
     }
     const msg = message.trim() || "Hello";
@@ -102,7 +114,7 @@ export default function CampaignManager() {
       if (data.templates && data.templates.length > 0) {
         setTemplates(data.templates);
         setSelectedTemplate(0);
-        setMessage(data.templates[0]); // auto-fill first option
+        setMessage(data.templates[0]);
         toast({ title: "✅ 3 options generated!" });
       } else {
         toast({ title: "Failed to generate", variant: "destructive" });
@@ -118,14 +130,23 @@ export default function CampaignManager() {
     setMessage(templates[idx]);
   };
 
+  // Get unique cities from leads (optional)
+  const cities = [...new Set(leads.map(l => l.address).filter(Boolean))].slice(0, 20);
+
   return (
-    <div className="glass-card p-6 space-y-4">
+    <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-xl font-semibold">💬 WhatsApp Outreach ({leads.length})</h2>
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48 bg-white/5 border-white/10" />
+            <Input
+              placeholder="Search..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-9 w-48 bg-white/5 border-white/10"
+            />
           </div>
           <Button onClick={fetchLeads} variant="outline" size="sm"><RefreshCw className="h-4 w-4" /></Button>
         </div>
@@ -141,11 +162,19 @@ export default function CampaignManager() {
           </SelectContent>
         </Select>
 
+        <Select value={filters.country} onValueChange={v => setFilters(prev => ({ ...prev, country: v }))}>
+          <SelectTrigger className="w-[160px] bg-white/5 border-white/10 text-sm"><SelectValue placeholder="Country" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Countries</SelectItem>
+            {filterOptions.countries.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
         <Select value={filters.city} onValueChange={v => setFilters(prev => ({ ...prev, city: v }))}>
           <SelectTrigger className="w-[160px] bg-white/5 border-white/10 text-sm"><SelectValue placeholder="City" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Cities</SelectItem>
-            {PAKISTAN_CITIES.map(city => <SelectItem key={city} value={city}>{city}</SelectItem>)}
+            {cities.map(city => <SelectItem key={city} value={city}>{city}</SelectItem>)}
           </SelectContent>
         </Select>
 
@@ -154,8 +183,8 @@ export default function CampaignManager() {
         </Button>
       </div>
 
-      {/* AI Generator */}
-      <div className="bg-black/20 rounded-xl p-4 border border-white/5 space-y-3">
+      {/* AI Generator (same as before) */}
+      <div className="glass-card p-6 space-y-4">
         <p className="text-sm font-medium text-gray-300">🤖 Generate WhatsApp Message Options</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <Input placeholder="Niche (e.g. Auto Parts)" value={aiNiche} onChange={e => setAiNiche(e.target.value)} className="bg-white/5 border-white/10" />
@@ -167,7 +196,6 @@ export default function CampaignManager() {
           {generating ? "Generating..." : "Generate 3 Options"}
         </Button>
 
-        {/* Template selection */}
         {templates.length > 0 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2 mt-2">
             <p className="text-xs text-gray-400">Select the best option:</p>
@@ -192,60 +220,128 @@ export default function CampaignManager() {
             ))}
           </motion.div>
         )}
+
+        <div className="space-y-2">
+          <label className="text-sm text-gray-400">Message (edit if needed)</label>
+          <Textarea
+            value={message}
+            onChange={e => setMessage(e.target.value)}
+            rows={3}
+            className="bg-white/5 border-white/10"
+            placeholder="Your WhatsApp message..."
+          />
+        </div>
       </div>
 
-      {/* Editable Message (always shows the selected template) */}
-      <div className="space-y-2">
-        <label className="text-sm text-gray-400">Message (edit if needed)</label>
-        <Textarea
-          value={message}
-          onChange={e => setMessage(e.target.value)}
-          rows={4}
-          className="bg-white/5 border-white/10"
-          placeholder="Your WhatsApp message will appear here..."
-        />
-      </div>
-
+      {/* Bulk Action Bar */}
       {selectedIds.length > 0 && (
-        <Button onClick={openWhatsAppBulk} className="bg-green-600 hover:bg-green-700 gap-2">
-          <Send className="h-4 w-4" /> Open WhatsApp for {selectedIds.length} leads
-        </Button>
+        <div className="flex items-center gap-3 bg-black/30 p-3 rounded-xl border border-white/5">
+          <span className="text-sm text-gray-400">{selectedIds.length} selected</span>
+          <Button onClick={openWhatsAppBulk} className="bg-green-600 hover:bg-green-700 gap-2" size="sm">
+            <Send className="h-4 w-4" /> Open WhatsApp
+          </Button>
+        </div>
       )}
 
+      {/* Lead Cards Grid */}
       {loading ? (
-        <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full bg-white/5" />)}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-48 bg-white/5 rounded-xl" />)}
+        </div>
       ) : leads.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
+        <div className="text-center py-16 text-gray-400">
           <Phone className="h-12 w-12 mx-auto mb-3 opacity-50" />
-          <p>No leads with phone numbers found for the selected filters.</p>
+          <p>No leads with phone numbers found.</p>
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow className="border-white/5">
-              <TableHead className="w-10"><Checkbox checked={selectedIds.length === leads.length && leads.length > 0} onCheckedChange={toggleAll} /></TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Company</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        <>
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-sm text-gray-400">
+              <Checkbox
+                checked={selectedIds.length === leads.length && leads.length > 0}
+                onCheckedChange={toggleAll}
+              />
+              Select All
+            </label>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {leads.map(lead => (
-              <TableRow key={lead._id} className="border-white/5 hover:bg-white/[0.03]">
-                <TableCell><Checkbox checked={selectedIds.includes(lead._id)} onCheckedChange={() => toggleOne(lead._id)} /></TableCell>
-                <TableCell className="font-medium">{lead.name}</TableCell>
-                <TableCell>{lead.company}</TableCell>
-                <TableCell className="text-green-400 text-sm">{lead.phone}</TableCell>
-                <TableCell>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${lead.status === "converted" ? "bg-green-500/20 text-green-300" : "bg-gray-500/20 text-gray-400"}`}>
-                    {lead.status}
-                  </span>
-                </TableCell>
-              </TableRow>
+              <Card
+                key={lead._id}
+                className={`bg-black/40 border ${
+                  selectedIds.includes(lead._id) ? "border-[#6366F1]" : "border-white/5"
+                } hover:border-white/10 transition-all`}
+              >
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3 flex-1">
+                      <Checkbox
+                        checked={selectedIds.includes(lead._id)}
+                        onCheckedChange={() => toggleSelect(lead._id)}
+                      />
+                      <div>
+                        <h3 className="font-semibold text-white">{lead.name || "Unknown"}</h3>
+                        <p className="text-xs text-gray-400">{lead.company || "—"}</p>
+                        {lead.address && (
+                          <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
+                            <MapPin className="h-3 w-3" />
+                            <span className="truncate max-w-[180px]">{lead.address}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {lead.phone && (
+                      <a
+                        href={`https://wa.me/${lead.phone.replace(/[^0-9+]/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-500/10 text-green-400 text-xs hover:bg-green-500/20 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fetch(`${API}/leads/${lead._id}/whatsapp-click`, { method: 'PUT' }).catch(() => {});
+                        }}
+                      >
+                        <Phone className="h-3 w-3" /> {lead.phone}
+                      </a>
+                    )}
+                    {lead.email && (
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(lead.email);
+                          toast({ title: "Email copied!" });
+                        }}
+                        className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs hover:bg-blue-500/20"
+                      >
+                        <Mail className="h-3 w-3" /> Email
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Status Dropdown */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">Status:</span>
+                    <Select
+                      value={lead.status || "new"}
+                      onValueChange={(val) => updateLeadStatus(lead._id, val)}
+                    >
+                      <SelectTrigger className="h-7 px-2 text-xs bg-white/5 border-white/10 w-[120px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATUS_OPTIONS.map(s => (
+                          <SelectItem key={s} value={s} className="text-xs capitalize">{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
             ))}
-          </TableBody>
-        </Table>
+          </div>
+        </>
       )}
     </div>
   );
