@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 
 type ToastProps = {
   id: string
@@ -11,29 +11,29 @@ type ToastProps = {
 let count = 0
 function genId() { return `${++count}` }
 
-let globalListeners: Array<() => void> = []
-let globalToasts: ToastProps[] = []
+let listeners: Array<() => void> = []
+let toasts: ToastProps[] = []
 
-function emit() { globalListeners.forEach(l => l()) }
+function emit() { listeners.forEach(l => l()) }
 
 export function toast(props: Omit<ToastProps, "id">) {
   const id = genId()
-  globalToasts = [...globalToasts, { id, ...props }].slice(-5)
+  toasts = [...toasts, { id, ...props }].slice(-5)
   emit()
   setTimeout(() => {
-    globalToasts = globalToasts.filter(t => t.id !== id)
+    toasts = toasts.filter(t => t.id !== id)
     emit()
   }, 4000)
 }
 
 export function useToast() {
-  const [toasts, setToasts] = useState<ToastProps[]>(globalToasts)
+  const [state, setState] = useState<ToastProps[]>(toasts)
   
   useEffect(() => {
-    const listener = () => setToasts([...globalToasts])
-    globalListeners.push(listener)
-    return () => { globalListeners = globalListeners.filter(l => l !== listener) }
+    const listener = () => setState([...toasts])
+    listeners.push(listener)
+    return () => { listeners = listeners.filter(l => l !== listener) }
   }, [])
 
-  return { toasts }
+  return { toasts: state, toast }
 }
