@@ -175,7 +175,13 @@ export default function LocalInsightsPage() {
                     </TableCell>
                     <TableCell>
                       {lead.rating ? (
-                        <span className="flex items-center gap-1 text-yellow-400 text-sm"><Star className="h-3 w-3 fill-yellow-400" /> {lead.rating}</span>
+                        <div className="flex items-center gap-1">
+                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                          <span className="text-yellow-400 text-sm font-medium">{lead.rating}</span>
+                          {lead.reviews && (
+                            <span className="text-gray-500 text-xs ml-1">({lead.reviews} reviews)</span>
+                          )}
+                        </div>
                       ) : "—"}
                     </TableCell>
                     <TableCell>
@@ -209,4 +215,4 @@ export default function LocalInsightsPage() {
       )}
     </motion.div>
   );
-        }
+}
