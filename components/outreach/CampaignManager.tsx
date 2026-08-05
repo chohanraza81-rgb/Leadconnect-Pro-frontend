@@ -5,9 +5,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, RefreshCw, Phone, Send } from "lucide-react";
+import { Search, RefreshCw, Phone, Send, Sparkles, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -17,30 +19,41 @@ export default function CampaignManager() {
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [message, setMessage] = useState("");
+  const [filters, setFilters] = useState({ niche: "all", country: "PK", status: "all" });
+  const [filterOptions, setFilterOptions] = useState({ niches: [], countries: [] });
+  const [generating, setGenerating] = useState(false);
+
+  // AI generation fields
+  const [aiNiche, setAiNiche] = useState("");
+  const [aiOffer, setAiOffer] = useState("");
+  const [aiSignature, setAiSignature] = useState("");
 
   const fetchLeads = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/leads`);
+      const params = new URLSearchParams();
+      if (filters.niche !== "all") params.append("niche", filters.niche);
+      if (filters.country !== "all") params.append("country", filters.country);
+      if (filters.status !== "all") params.append("status", filters.status);
+      if (search.trim()) params.append("search", search);
+
+      const res = await fetch(`${API}/leads?${params.toString()}`);
       let data = await res.json();
-      // Only leads with phone
+      // Only leads with phone numbers
       data = data.filter((l: any) => l.phone);
-      if (search.trim()) {
-        const s = search.toLowerCase();
-        data = data.filter((l: any) =>
-          l.name?.toLowerCase().includes(s) ||
-          l.company?.toLowerCase().includes(s) ||
-          l.phone?.toLowerCase().includes(s)
-        );
-      }
       setLeads(data);
     } catch {
       toast({ title: "Failed to load leads", variant: "destructive" });
     }
     setLoading(false);
-  }, [search]);
+  }, [filters, search]);
 
-  useEffect(() => { fetchLeads(); }, [fetchLeads]);
+  useEffect(() => {
+    fetchLeads();
+    fetch(`${API}/leads/filters`).then(r => r.json()).then(d => {
+      setFilterOptions({ niches: d.niches || [], countries: d.countries || [] });
+    }).catch(() => {});
+  }, [fetchLeads]);
 
   const toggleAll = (checked: boolean) => setSelectedIds(checked ? leads.map(l => l._id) : []);
   const toggleOne = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -48,7 +61,7 @@ export default function CampaignManager() {
   const openWhatsAppBulk = () => {
     const selected = leads.filter(l => selectedIds.includes(l._id));
     if (selected.length === 0) {
-      toast({ title: "Select leads with phone", variant: "destructive" });
+      toast({ title: "Select leads with phone numbers", variant: "destructive" });
       return;
     }
     const msg = message.trim() || "Hello";
@@ -60,6 +73,31 @@ export default function CampaignManager() {
       }, i * 800);
     });
     toast({ title: `💬 Opening WhatsApp for ${selected.length} leads...` });
+  };
+
+  const generateWhatsAppMessage = async () => {
+    if (!aiNiche.trim() || !aiOffer.trim()) {
+      toast({ title: "Enter niche and offer", variant: "destructive" });
+      return;
+    }
+    setGenerating(true);
+    try {
+      const res = await fetch(`${API}/outreach/generate-whatsapp-template`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ niche: aiNiche, offer: aiOffer, signature: aiSignature }),
+      });
+      const data = await res.json();
+      if (data.template) {
+        setMessage(data.template);
+        toast({ title: "✅ Template generated! Edit if needed." });
+      } else {
+        toast({ title: "Failed to generate", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error generating template", variant: "destructive" });
+    }
+    setGenerating(false);
   };
 
   return (
@@ -75,13 +113,50 @@ export default function CampaignManager() {
         </div>
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <Select value={filters.niche} onValueChange={v => setFilters(prev => ({ ...prev, niche: v }))}>
+          <SelectTrigger className="w-[140px] bg-white/5 border-white/10 text-sm"><SelectValue placeholder="Niche" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Niches</SelectItem>
+            {filterOptions.niches.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filters.country} onValueChange={v => setFilters(prev => ({ ...prev, country: v }))}>
+          <SelectTrigger className="w-[140px] bg-white/5 border-white/10 text-sm"><SelectValue placeholder="Country" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Countries</SelectItem>
+            <SelectItem value="PK">🇵🇰 Pakistan</SelectItem>
+            {filterOptions.countries.filter(c => c !== "PK").map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Button onClick={fetchLeads} variant="outline" size="sm" className="border-[#6366F1] text-[#6366F1]">
+          Apply
+        </Button>
+      </div>
+
+      {/* AI Generator */}
+      <div className="bg-black/20 rounded-xl p-4 border border-white/5 space-y-3">
+        <p className="text-sm font-medium text-gray-300">🤖 Generate WhatsApp Message</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <Input placeholder="Niche (e.g. Auto Parts)" value={aiNiche} onChange={e => setAiNiche(e.target.value)} className="bg-white/5 border-white/10" />
+          <Input placeholder="Your Offer" value={aiOffer} onChange={e => setAiOffer(e.target.value)} className="bg-white/5 border-white/10" />
+          <Input placeholder="Your Name" value={aiSignature} onChange={e => setAiSignature(e.target.value)} className="bg-white/5 border-white/10" />
+        </div>
+        <Button onClick={generateWhatsAppMessage} disabled={generating} className="bg-[#6366F1] gap-2" size="sm">
+          {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          {generating ? "Generating..." : "Generate Message"}
+        </Button>
+      </div>
+
+      {/* Editable Message */}
       <div className="space-y-2">
-        <label className="text-sm text-gray-400">Message Template</label>
+        <label className="text-sm text-gray-400">Message (edit before sending)</label>
         <Textarea
-          placeholder="Type your WhatsApp message..."
+          placeholder="Type your WhatsApp message... Use {{firstName}} and {{company}}"
           value={message}
           onChange={e => setMessage(e.target.value)}
-          rows={3}
+          rows={4}
           className="bg-white/5 border-white/10"
         />
       </div>
@@ -97,7 +172,7 @@ export default function CampaignManager() {
       ) : leads.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
           <Phone className="h-12 w-12 mx-auto mb-3 opacity-50" />
-          <p>No leads with phone numbers found.</p>
+          <p>No leads with phone numbers found for the selected filters.</p>
         </div>
       ) : (
         <Table>
