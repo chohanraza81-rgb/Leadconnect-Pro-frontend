@@ -17,7 +17,7 @@ export default function OutreachPage() {
             Select Leads
           </TabsTrigger>
           <TabsTrigger value="campaigns" className="data-[state=active]:bg-[#6366F1] rounded-lg px-5 py-2 transition-all">
-            Campaigns
+            Campaigns / WhatsApp
           </TabsTrigger>
         </TabsList>
 
