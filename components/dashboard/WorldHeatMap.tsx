@@ -88,4 +88,4 @@ export default function WorldHeatMap({ data }: { data: Record<string, number> })
       </CardContent>
     </Card>
   );
-}
+            }
