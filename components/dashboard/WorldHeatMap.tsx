@@ -6,23 +6,36 @@ import { useState } from "react";
 
 const geoUrl = "/world-110m.json";
 
-const countryCodeMap: Record<string, string> = {
-  US: "USA", UK: "GBR", CA: "CAN", AU: "AUS", DE: "DEU", SG: "SGP",
-  SA: "SAU", AE: "ARE", PK: "PAK", IN: "IND", TR: "TUR", MY: "MYS",
+// Map numeric IDs (from world-atlas) to your country codes
+const numericIdToCode: Record<string, string> = {
+  "840": "US",  // United States
+  "826": "UK",  // United Kingdom
+  "124": "CA",  // Canada
+  "036": "AU",  // Australia
+  "276": "DE",  // Germany
+  "702": "SG",  // Singapore
+  "682": "SA",  // Saudi Arabia
+  "784": "AE",  // UAE
+  "586": "PK",  // Pakistan
+  "356": "IN",  // India
+  "792": "TR",  // Turkey
+  "458": "MY",  // Malaysia
 };
 
 export default function WorldHeatMap({ data }: { data: Record<string, number> }) {
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
+  const [error, setError] = useState(false);
+
   const values = Object.values(data || {}).filter(v => v > 0);
   const maxVal = Math.max(...values, 1);
   const colorScale = scaleLinear<string>().domain([0, maxVal]).range(["#1a1a2e", "#6366F1"]);
 
-  if (!data || Object.keys(data).length === 0) {
+  if (error) {
     return (
       <Card className="bg-black/40 backdrop-blur-xl border-white/10">
         <CardHeader><CardTitle className="text-lg">🌍 Global Lead Distribution</CardTitle></CardHeader>
         <CardContent>
-          <p className="text-gray-500 text-center py-8">No geographic data yet. Add leads to see the map.</p>
+          <p className="text-red-400 text-center py-8">Failed to load map. Check world-110m.json.</p>
         </CardContent>
       </Card>
     );
@@ -37,12 +50,15 @@ export default function WorldHeatMap({ data }: { data: Record<string, number> })
             projectionConfig={{ scale: 140 }}
             style={{ width: "100%", height: "auto" }}
           >
-            <Geographies geography={geoUrl}>
+            <Geographies
+              geography={geoUrl}
+              onError={() => setError(true)}
+            >
               {({ geographies }) =>
                 geographies.map(geo => {
-                  const iso = geo.properties.ISO_A3 || geo.properties.ISO_A2 || "";
-                  const code = Object.keys(countryCodeMap).find(k => countryCodeMap[k] === iso);
-                  const value = code ? (data[code] || 0) : 0;
+                  // Use numeric ID to find country code
+                  const countryCode = numericIdToCode[geo.id];
+                  const value = countryCode ? (data[countryCode] || 0) : 0;
                   return (
                     <Geography
                       key={geo.rsmKey}
@@ -51,7 +67,9 @@ export default function WorldHeatMap({ data }: { data: Record<string, number> })
                       stroke="#333"
                       strokeWidth={0.5}
                       onMouseEnter={(evt) => {
-                        if (code) setTooltip({ x: evt.clientX, y: evt.clientY, text: `${code}: ${value} leads` });
+                        if (countryCode) {
+                          setTooltip({ x: evt.clientX, y: evt.clientY, text: `${countryCode}: ${value} leads` });
+                        }
                       }}
                       onMouseLeave={() => setTooltip(null)}
                       style={{
@@ -66,26 +84,34 @@ export default function WorldHeatMap({ data }: { data: Record<string, number> })
             </Geographies>
           </ComposableMap>
           {tooltip && (
-            <div style={{
-              position: "fixed",
-              top: tooltip.y + 10,
-              left: tooltip.x + 10,
-              background: "#111",
-              color: "#fff",
-              padding: "6px 12px",
-              borderRadius: 8,
-              fontSize: 13,
-              border: "1px solid #333",
-              pointerEvents: "none",
-              zIndex: 9999,
-            }}>{tooltip.text}</div>
+            <div
+              style={{
+                position: "fixed",
+                top: tooltip.y + 10,
+                left: tooltip.x + 10,
+                background: "#111",
+                color: "#fff",
+                padding: "6px 12px",
+                borderRadius: 8,
+                fontSize: 13,
+                border: "1px solid #333",
+                pointerEvents: "none",
+                zIndex: 9999,
+              }}
+            >
+              {tooltip.text}
+            </div>
           )}
         </div>
         <div className="flex justify-center gap-4 mt-4 text-xs text-gray-400">
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: "#1a1a2e" }} /> 0</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: "#6366F1" }} /> {maxVal}</span>
+          <span className="flex items-center gap-1">
+            <span className="w-3 h-3 rounded" style={{ background: "#1a1a2e" }} /> 0
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-3 h-3 rounded" style={{ background: "#6366F1" }} /> {maxVal}
+          </span>
         </div>
       </CardContent>
     </Card>
   );
-            }
+}
