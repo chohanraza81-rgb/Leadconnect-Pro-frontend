@@ -1,8 +1,16 @@
 "use client";
-import { Button } from "@/components/ui/button";
-import { Download, Copy, FileJson } from "lucide-react";
-import { toast } from "@/components/ui/use-toast";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Download, Copy, FileSpreadsheet, FileJson, FileText, Mail, Phone, ClipboardList, CheckCircle2 } from "lucide-react";
 
 interface ExportButtonProps {
   data: any[];
@@ -10,105 +18,115 @@ interface ExportButtonProps {
 }
 
 export default function ExportButton({ data, filename = "leads" }: ExportButtonProps) {
-  const [exporting, setExporting] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
 
-  const copyAllEmails = () => {
-    const emails = data
-      .filter(l => l.email)
-      .map(l => l.email)
-      .join(", ");
-    
-    if (!emails) {
-      toast({ title: "No emails to copy", variant: "destructive" });
-      return;
-    }
-    
-    navigator.clipboard.writeText(emails);
-    toast({ title: `📋 Copied ${data.filter(l => l.email).length} emails!` });
+  const markCopied = (type: string) => {
+    setCopied(type);
+    setTimeout(() => setCopied(null), 2000);
   };
 
-  const copyAllPhones = () => {
-    const phones = data
-      .filter(l => l.phone)
-      .map(l => l.phone)
-      .join(", ");
-    
-    if (!phones) {
-      toast({ title: "No phones to copy", variant: "destructive" });
-      return;
-    }
-    
+  const copyEmails = () => {
+    const emails = data.filter(l => l.email).map(l => l.email).join(", ");
+    if (!emails) return toast({ title: "No emails found", variant: "destructive" });
+    navigator.clipboard.writeText(emails);
+    markCopied("emails");
+    toast({ title: `📋 ${data.filter(l => l.email).length} emails copied!` });
+  };
+
+  const copyPhones = () => {
+    const phones = data.filter(l => l.phone).map(l => l.phone).join(", ");
+    if (!phones) return toast({ title: "No phones found", variant: "destructive" });
     navigator.clipboard.writeText(phones);
-    toast({ title: `📋 Copied ${data.filter(l => l.phone).length} phones!` });
+    markCopied("phones");
+    toast({ title: `📋 ${data.filter(l => l.phone).length} phones copied!` });
+  };
+
+  const copyAll = () => {
+    const text = data.map(l => `${l.name} | ${l.company} | ${l.email} | ${l.phone}`).join("\n");
+    if (!text) return toast({ title: "No data", variant: "destructive" });
+    navigator.clipboard.writeText(text);
+    markCopied("all");
+    toast({ title: "📋 All data copied!" });
+  };
+
+  const downloadFile = (content: string, name: string, type: string) => {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const downloadCSV = () => {
-    if (data.length === 0) {
-      toast({ title: "No data to download", variant: "destructive" });
-      return;
-    }
-    
-    setExporting(true);
-    
-    const headers = ["Name", "Company", "Email", "Phone", "Country", "Status"];
+    if (!data.length) return toast({ title: "No data", variant: "destructive" });
+    const headers = ["Name", "Company", "Email", "Phone", "Country", "Niche", "Status", "Address", "Rating"];
     const rows = data.map(l => [
-      l.name || "",
-      l.company || "",
-      l.email || "",
-      l.phone || "",
-      l.country || "",
-      l.status || "",
+      l.name || "", l.company || "", l.email || "", l.phone || "",
+      l.country || "", l.niche || "", l.status || "", l.address || "", l.rating || ""
     ]);
-    
-    let csv = headers.join(",") + "\n";
-    rows.forEach(row => {
-      csv += row.map(cell => `"${(cell || "").replace(/"/g, '""')}"`).join(",") + "\n";
-    });
-    
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${filename}-${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    
-    toast({ title: `📥 Downloaded ${data.length} leads as CSV!` });
-    setExporting(false);
+    let csv = "\uFEFF" + headers.join(",") + "\n";
+    rows.forEach(r => csv += r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",") + "\n");
+    downloadFile(csv, `${filename}.csv`, "text/csv;charset=utf-8");
+    toast({ title: "📥 Excel/CSV downloaded!" });
   };
 
   const downloadJSON = () => {
-    if (data.length === 0) {
-      toast({ title: "No data to download", variant: "destructive" });
-      return;
-    }
-    
-    const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${filename}-${new Date().toISOString().split("T")[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    
-    toast({ title: `📥 Downloaded ${data.length} leads as JSON!` });
+    if (!data.length) return toast({ title: "No data", variant: "destructive" });
+    downloadFile(JSON.stringify(data, null, 2), `${filename}.json`, "application/json");
+    toast({ title: "📥 JSON downloaded!" });
+  };
+
+  const downloadTXT = () => {
+    if (!data.length) return toast({ title: "No data", variant: "destructive" });
+    const text = data.map(l => 
+      `Name: ${l.name}\nCompany: ${l.company}\nEmail: ${l.email}\nPhone: ${l.phone}\n---`
+    ).join("\n\n");
+    downloadFile(text, `${filename}.txt`, "text/plain");
+    toast({ title: "📥 Text file downloaded!" });
   };
 
   return (
-    <div className="flex flex-wrap gap-2">
-      <Button size="sm" variant="outline" onClick={copyAllEmails} className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10 text-xs">
-        <Copy className="h-3 w-3 mr-1" /> Copy All Emails
-      </Button>
-      <Button size="sm" variant="outline" onClick={copyAllPhones} className="border-green-500/30 text-green-400 hover:bg-green-500/10 text-xs">
-        <Copy className="h-3 w-3 mr-1" /> Copy All Phones
-      </Button>
-      <Button size="sm" variant="outline" onClick={downloadCSV} className="border-white/20 text-gray-300 hover:bg-white/5 text-xs">
-        <Download className="h-3 w-3 mr-1" /> CSV
-      </Button>
-      <Button size="sm" variant="outline" onClick={downloadJSON} className="border-white/20 text-gray-300 hover:bg-white/5 text-xs">
-        <FileJson className="h-3 w-3 mr-1" /> JSON
-      </Button>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="border-white/20 gap-2 hover:bg-white/5">
+          <Download className="h-4 w-4" /> Export
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56 bg-[#111] border-white/10 text-white">
+        <DropdownMenuLabel>📤 Export & Copy</DropdownMenuLabel>
+        <DropdownMenuSeparator className="bg-white/10" />
+
+        <DropdownMenuItem onClick={copyEmails} className="cursor-pointer hover:bg-white/5 gap-2">
+          {copied === "emails" ? <CheckCircle2 className="h-4 w-4 text-green-400" /> : <Mail className="h-4 w-4 text-blue-400" />}
+          Copy All Emails
+        </DropdownMenuItem>
+
+        <DropdownMenuItem onClick={copyPhones} className="cursor-pointer hover:bg-white/5 gap-2">
+          {copied === "phones" ? <CheckCircle2 className="h-4 w-4 text-green-400" /> : <Phone className="h-4 w-4 text-green-400" />}
+          Copy All Phones
+        </DropdownMenuItem>
+
+        <DropdownMenuItem onClick={copyAll} className="cursor-pointer hover:bg-white/5 gap-2">
+          {copied === "all" ? <CheckCircle2 className="h-4 w-4 text-green-400" /> : <ClipboardList className="h-4 w-4 text-yellow-400" />}
+          Copy Complete Table
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator className="bg-white/10" />
+
+        <DropdownMenuItem onClick={downloadCSV} className="cursor-pointer hover:bg-white/5 gap-2">
+          <FileSpreadsheet className="h-4 w-4 text-green-500" /> Excel / CSV
+        </DropdownMenuItem>
+
+        <DropdownMenuItem onClick={downloadJSON} className="cursor-pointer hover:bg-white/5 gap-2">
+          <FileJson className="h-4 w-4 text-yellow-500" /> JSON Format
+        </DropdownMenuItem>
+
+        <DropdownMenuItem onClick={downloadTXT} className="cursor-pointer hover:bg-white/5 gap-2">
+          <FileText className="h-4 w-4 text-gray-400" /> Text File
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
-      }
+}
