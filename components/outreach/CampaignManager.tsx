@@ -8,26 +8,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, RefreshCw, Phone, Send, Sparkles, Loader2 } from "lucide-react";
+import { Search, RefreshCw, Phone, Send, Sparkles, Loader2, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
-// Country code mapping
-const countryCodeMap: Record<string, string> = {
-  PK: "+92",
-  IN: "+91",
-  US: "+1",
-  GB: "+44",
-  AE: "+971",
-  SA: "+966",
-  CA: "+1",
-  AU: "+61",
-  DE: "+49",
-  MY: "+60",
-  TR: "+90",
-  SG: "+65",
-};
+const PAKISTAN_CITIES = [
+  "Karachi", "Lahore", "Islamabad", "Rawalpindi",
+  "Faisalabad", "Multan", "Peshawar", "Quetta",
+  "Sialkot", "Gujranwala"
+];
 
 export default function CampaignManager() {
   const [leads, setLeads] = useState<any[]>([]);
@@ -35,14 +25,18 @@ export default function CampaignManager() {
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [message, setMessage] = useState("");
-  const [filters, setFilters] = useState({ niche: "all", country: "PK", status: "all" });
-  const [filterOptions, setFilterOptions] = useState({ niches: [], countries: [] });
-  const [generating, setGenerating] = useState(false);
 
-  // AI generation fields
+  // Filters
+  const [filters, setFilters] = useState({ niche: "all", country: "PK", city: "all" });
+  const [filterOptions, setFilterOptions] = useState({ niches: [] });
+
+  // AI generation
   const [aiNiche, setAiNiche] = useState("");
   const [aiOffer, setAiOffer] = useState("");
   const [aiSignature, setAiSignature] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [templates, setTemplates] = useState<string[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<number>(0);
 
   const fetchLeads = useCallback(async () => {
     setLoading(true);
@@ -50,12 +44,11 @@ export default function CampaignManager() {
       const params = new URLSearchParams();
       if (filters.niche !== "all") params.append("niche", filters.niche);
       if (filters.country !== "all") params.append("country", filters.country);
-      if (filters.status !== "all") params.append("status", filters.status);
+      if (filters.city !== "all") params.append("city", filters.city);
       if (search.trim()) params.append("search", search);
 
       const res = await fetch(`${API}/leads?${params.toString()}`);
       let data = await res.json();
-      // Only leads with phone numbers
       data = data.filter((l: any) => l.phone);
       setLeads(data);
     } catch {
@@ -67,12 +60,14 @@ export default function CampaignManager() {
   useEffect(() => {
     fetchLeads();
     fetch(`${API}/leads/filters`).then(r => r.json()).then(d => {
-      setFilterOptions({ niches: d.niches || [], countries: d.countries || [] });
+      setFilterOptions({ niches: d.niches || [] });
     }).catch(() => {});
   }, [fetchLeads]);
 
   const toggleAll = (checked: boolean) => setSelectedIds(checked ? leads.map(l => l._id) : []);
-  const toggleOne = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const toggleOne = (id: string) => setSelectedIds(prev =>
+    prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+  );
 
   const openWhatsAppBulk = () => {
     const selected = leads.filter(l => selectedIds.includes(l._id));
@@ -91,7 +86,7 @@ export default function CampaignManager() {
     toast({ title: `💬 Opening WhatsApp for ${selected.length} leads...` });
   };
 
-  const generateWhatsAppMessage = async () => {
+  const generateWhatsAppTemplates = async () => {
     if (!aiNiche.trim() || !aiOffer.trim()) {
       toast({ title: "Enter niche and offer", variant: "destructive" });
       return;
@@ -104,16 +99,23 @@ export default function CampaignManager() {
         body: JSON.stringify({ niche: aiNiche, offer: aiOffer, signature: aiSignature }),
       });
       const data = await res.json();
-      if (data.template) {
-        setMessage(data.template);
-        toast({ title: "✅ Template generated! Edit if needed." });
+      if (data.templates && data.templates.length > 0) {
+        setTemplates(data.templates);
+        setSelectedTemplate(0);
+        setMessage(data.templates[0]); // auto-fill first option
+        toast({ title: "✅ 3 options generated!" });
       } else {
         toast({ title: "Failed to generate", variant: "destructive" });
       }
     } catch {
-      toast({ title: "Error generating template", variant: "destructive" });
+      toast({ title: "Error generating templates", variant: "destructive" });
     }
     setGenerating(false);
+  };
+
+  const selectTemplate = (idx: number) => {
+    setSelectedTemplate(idx);
+    setMessage(templates[idx]);
   };
 
   return (
@@ -132,27 +134,21 @@ export default function CampaignManager() {
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
         <Select value={filters.niche} onValueChange={v => setFilters(prev => ({ ...prev, niche: v }))}>
-          <SelectTrigger className="w-[140px] bg-white/5 border-white/10 text-sm"><SelectValue placeholder="Niche" /></SelectTrigger>
+          <SelectTrigger className="w-[160px] bg-white/5 border-white/10 text-sm"><SelectValue placeholder="Niche" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Niches</SelectItem>
             {filterOptions.niches.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={filters.country} onValueChange={v => setFilters(prev => ({ ...prev, country: v }))}>
-          <SelectTrigger className="w-[160px] bg-white/5 border-white/10 text-sm"><SelectValue placeholder="Country" /></SelectTrigger>
+
+        <Select value={filters.city} onValueChange={v => setFilters(prev => ({ ...prev, city: v }))}>
+          <SelectTrigger className="w-[160px] bg-white/5 border-white/10 text-sm"><SelectValue placeholder="City" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Countries</SelectItem>
-            <SelectItem value="PK">🇵🇰 Pakistan (+92)</SelectItem>
-            <SelectItem value="IN">🇮🇳 India (+91)</SelectItem>
-            <SelectItem value="US">🇺🇸 USA (+1)</SelectItem>
-            <SelectItem value="GB">🇬🇧 UK (+44)</SelectItem>
-            <SelectItem value="AE">🇦🇪 UAE (+971)</SelectItem>
-            <SelectItem value="SA">🇸🇦 Saudi Arabia (+966)</SelectItem>
-            {filterOptions.countries
-              .filter(c => !["PK", "IN", "US", "GB", "AE", "SA"].includes(c))
-              .map(c => <SelectItem key={c} value={c}>{c} ({countryCodeMap[c] || ""})</SelectItem>)}
+            <SelectItem value="all">All Cities</SelectItem>
+            {PAKISTAN_CITIES.map(city => <SelectItem key={city} value={city}>{city}</SelectItem>)}
           </SelectContent>
         </Select>
+
         <Button onClick={fetchLeads} variant="outline" size="sm" className="border-[#6366F1] text-[#6366F1]">
           Apply Filters
         </Button>
@@ -160,27 +156,53 @@ export default function CampaignManager() {
 
       {/* AI Generator */}
       <div className="bg-black/20 rounded-xl p-4 border border-white/5 space-y-3">
-        <p className="text-sm font-medium text-gray-300">🤖 Generate WhatsApp Message</p>
+        <p className="text-sm font-medium text-gray-300">🤖 Generate WhatsApp Message Options</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <Input placeholder="Niche (e.g. Auto Parts)" value={aiNiche} onChange={e => setAiNiche(e.target.value)} className="bg-white/5 border-white/10" />
-          <Input placeholder="Your Offer" value={aiOffer} onChange={e => setAiOffer(e.target.value)} className="bg-white/5 border-white/10" />
-          <Input placeholder="Your Name" value={aiSignature} onChange={e => setAiSignature(e.target.value)} className="bg-white/5 border-white/10" />
+          <Input placeholder="Your Offer / Value" value={aiOffer} onChange={e => setAiOffer(e.target.value)} className="bg-white/5 border-white/10" />
+          <Input placeholder="Your Name (Signature)" value={aiSignature} onChange={e => setAiSignature(e.target.value)} className="bg-white/5 border-white/10" />
         </div>
-        <Button onClick={generateWhatsAppMessage} disabled={generating} className="bg-[#6366F1] gap-2" size="sm">
+        <Button onClick={generateWhatsAppTemplates} disabled={generating} className="bg-[#6366F1] gap-2" size="sm">
           {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          {generating ? "Generating..." : "Generate Message"}
+          {generating ? "Generating..." : "Generate 3 Options"}
         </Button>
+
+        {/* Template selection */}
+        {templates.length > 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2 mt-2">
+            <p className="text-xs text-gray-400">Select the best option:</p>
+            {templates.map((tmpl, idx) => (
+              <div
+                key={idx}
+                className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                  selectedTemplate === idx ? "border-[#6366F1] bg-[#6366F1]/10" : "border-white/10 hover:border-white/20"
+                }`}
+                onClick={() => selectTemplate(idx)}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                    selectedTemplate === idx ? "border-[#6366F1]" : "border-gray-500"
+                  }`}>
+                    {selectedTemplate === idx && <div className="w-2 h-2 rounded-full bg-[#6366F1]" />}
+                  </div>
+                  <span className="text-xs font-medium">Option {idx + 1}</span>
+                </div>
+                <p className="text-sm text-gray-200">{tmpl}</p>
+              </div>
+            ))}
+          </motion.div>
+        )}
       </div>
 
-      {/* Editable Message */}
+      {/* Editable Message (always shows the selected template) */}
       <div className="space-y-2">
-        <label className="text-sm text-gray-400">Message (edit before sending)</label>
+        <label className="text-sm text-gray-400">Message (edit if needed)</label>
         <Textarea
-          placeholder="Type your WhatsApp message... Use {{firstName}} and {{company}}"
           value={message}
           onChange={e => setMessage(e.target.value)}
           rows={4}
           className="bg-white/5 border-white/10"
+          placeholder="Your WhatsApp message will appear here..."
         />
       </div>
 
@@ -215,7 +237,11 @@ export default function CampaignManager() {
                 <TableCell className="font-medium">{lead.name}</TableCell>
                 <TableCell>{lead.company}</TableCell>
                 <TableCell className="text-green-400 text-sm">{lead.phone}</TableCell>
-                <TableCell><span className={`px-2 py-1 rounded-full text-xs font-medium ${lead.status === "converted" ? "bg-green-500/20 text-green-300" : "bg-gray-500/20 text-gray-400"}`}>{lead.status}</span></TableCell>
+                <TableCell>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${lead.status === "converted" ? "bg-green-500/20 text-green-300" : "bg-gray-500/20 text-gray-400"}`}>
+                    {lead.status}
+                  </span>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
