@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Search, Filter, RefreshCw, Send, Sparkles, Loader2 } from "lucide-react";
+import { Trash2, Search, Filter, RefreshCw, Send, Sparkles, Loader2, Paperclip, File } from "lucide-react";
 import { motion } from "framer-motion";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -25,14 +25,22 @@ export default function LeadSelectionTable() {
 
   // Bulk email modal
   const [emailModalOpen, setEmailModalOpen] = useState(false);
-  const [emailNiche, setEmailNiche] = useState("");       // niche for template
-  const [emailOffer, setEmailOffer] = useState("");        // your offer / value prop
+  const [emailNiche, setEmailNiche] = useState("");
+  const [emailOffer, setEmailOffer] = useState("");
   const [signature, setSignature] = useState("");
   const [generating, setGenerating] = useState(false);
   const [templates, setTemplates] = useState<string[]>([]);
   const [editableTemplates, setEditableTemplates] = useState<string[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<number>(0);
   const [sending, setSending] = useState(false);
+
+  // Attachment
+  const [attachment, setAttachment] = useState<{
+    filename: string;
+    content: string;   // base64
+    content_type: string;
+  } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchLeads = useCallback(async () => {
     setLoading(true);
@@ -84,7 +92,25 @@ export default function LeadSelectionTable() {
     setTemplates([]);
     setEditableTemplates([]);
     setSelectedTemplate(0);
+    setAttachment(null);
     setEmailModalOpen(true);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(',')[1]; // remove data:...;base64,
+      setAttachment({
+        filename: file.name,
+        content: base64,
+        content_type: file.type,
+      });
+      toast({ title: `📎 ${file.name} attached` });
+    };
+    reader.readAsDataURL(file);
   };
 
   const generateTemplates = async () => {
@@ -97,7 +123,7 @@ export default function LeadSelectionTable() {
       const res = await fetch(`${API}/outreach/generate-template`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject: emailNiche, offer: emailOffer, signature }), // subject = niche
+        body: JSON.stringify({ subject: emailNiche, offer: emailOffer, signature }),
       });
       const data = await res.json();
       if (data.templates && data.templates.length > 0) {
@@ -129,7 +155,13 @@ export default function LeadSelectionTable() {
         await fetch(`${API}/outreach/bulk-send`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ to: lead.email, subject: emailNiche, body, leadId: lead._id }),
+          body: JSON.stringify({
+            to: lead.email,
+            subject: emailNiche,
+            body,
+            leadId: lead._id,
+            attachment: attachment || undefined,
+          }),
         });
         success++;
       } catch {}
@@ -227,6 +259,29 @@ export default function LeadSelectionTable() {
               <label className="text-sm text-gray-400 mb-1 block">Your Name (Signature)</label>
               <Input placeholder="e.g. Albert, from High-tech" value={signature} onChange={e => setSignature(e.target.value)} className="bg-white/5 border-white/10" />
             </div>
+
+            {/* Attachment */}
+            <div>
+              <label className="text-sm text-gray-400 mb-1 block">Attachment (optional)</label>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="gap-1">
+                  <Paperclip className="h-4 w-4" /> Choose File
+                </Button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  className="hidden"
+                  accept=".doc,.docx,.xls,.xlsx,.csv,.md,.pdf,.txt"
+                />
+                {attachment && (
+                  <span className="text-xs text-green-400 flex items-center gap-1">
+                    <File className="h-3 w-3" /> {attachment.filename}
+                  </span>
+                )}
+              </div>
+            </div>
+
             <Button onClick={generateTemplates} disabled={generating || !emailNiche || !emailOffer} className="bg-[#6366F1] gap-2 w-full">
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {generating ? "Generating..." : "Generate Email Templates"}
