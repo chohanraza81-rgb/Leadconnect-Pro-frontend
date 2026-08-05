@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Search, Filter, RefreshCw, Mail, Send, Sparkles, Loader2 } from "lucide-react";
+import { Trash2, Search, Filter, RefreshCw, Send, Sparkles, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -23,12 +23,14 @@ export default function LeadSelectionTable() {
   const [filterOptions, setFilterOptions] = useState({ niches: [], countries: [], statuses: ["new", "contacted", "replied", "converted"] });
   const [deleteOpen, setDeleteOpen] = useState(false);
 
+  // Bulk email modal
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailOffer, setEmailOffer] = useState("");
   const [signature, setSignature] = useState("");
   const [generating, setGenerating] = useState(false);
   const [templates, setTemplates] = useState<string[]>([]);
+  const [editableTemplates, setEditableTemplates] = useState<string[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<number>(0);
   const [sending, setSending] = useState(false);
 
@@ -80,6 +82,7 @@ export default function LeadSelectionTable() {
     setEmailOffer("");
     setSignature("");
     setTemplates([]);
+    setEditableTemplates([]);
     setSelectedTemplate(0);
     setEmailModalOpen(true);
   };
@@ -99,6 +102,7 @@ export default function LeadSelectionTable() {
       const data = await res.json();
       if (data.templates && data.templates.length > 0) {
         setTemplates(data.templates);
+        setEditableTemplates(data.templates.map(t => t)); // make editable copies
         setSelectedTemplate(0);
       } else {
         toast({ title: "AI generation failed", variant: "destructive" });
@@ -109,9 +113,15 @@ export default function LeadSelectionTable() {
     setGenerating(false);
   };
 
+  const updateTemplate = (index: number, value: string) => {
+    const updated = [...editableTemplates];
+    updated[index] = value;
+    setEditableTemplates(updated);
+  };
+
   const sendBulkEmail = async () => {
-    if (templates.length === 0) return;
-    const body = templates[selectedTemplate];
+    if (editableTemplates.length === 0) return;
+    const body = editableTemplates[selectedTemplate]; // use the edited version
     setSending(true);
     let success = 0;
     for (const lead of selectedLeads) {
@@ -195,12 +205,13 @@ export default function LeadSelectionTable() {
         </DialogContent>
       </Dialog>
 
+      {/* Bulk Email Modal */}
       <Dialog open={emailModalOpen} onOpenChange={setEmailModalOpen}>
         <DialogContent className="bg-[#111] border-white/10 max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-[#6366F1]" /> Bulk Email to {selectedLeads.length} leads</DialogTitle>
             <DialogDescription>
-              Templates use <code className="bg-white/5 px-1 rounded">{"{{firstName}}"}</code> and <code className="bg-white/5 px-1 rounded">{"{{company}}"}</code> placeholders.
+              Templates use <code className="bg-white/5 px-1 rounded">{"{{firstName}}"}</code> and <code className="bg-white/5 px-1 rounded">{"{{company}}"}</code> placeholders – they will be replaced automatically.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -220,10 +231,11 @@ export default function LeadSelectionTable() {
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {generating ? "Generating..." : "Generate Email Templates"}
             </Button>
-            {templates.length > 0 && (
+
+            {editableTemplates.length > 0 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-                <p className="text-sm text-gray-400">Select a template:</p>
-                {templates.map((tmpl, idx) => (
+                <p className="text-sm text-gray-400">Select a template and edit if needed:</p>
+                {editableTemplates.map((tmpl, idx) => (
                   <div key={idx} className={`p-3 rounded-lg border cursor-pointer transition-all ${selectedTemplate === idx ? "border-[#6366F1] bg-[#6366F1]/10" : "border-white/10 hover:border-white/20"}`} onClick={() => setSelectedTemplate(idx)}>
                     <div className="flex items-center gap-2 mb-2">
                       <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${selectedTemplate === idx ? "border-[#6366F1]" : "border-gray-500"}`}>
@@ -231,9 +243,15 @@ export default function LeadSelectionTable() {
                       </div>
                       <span className="text-sm font-medium">Option {idx + 1}</span>
                     </div>
-                    <pre className="text-xs text-gray-300 whitespace-pre-wrap font-sans">{tmpl}</pre>
+                    <Textarea
+                      value={tmpl}
+                      onChange={e => updateTemplate(idx, e.target.value)}
+                      rows={6}
+                      className="bg-transparent border-white/10 text-sm text-gray-200"
+                    />
                   </div>
                 ))}
+
                 <Button onClick={sendBulkEmail} disabled={sending} className="w-full bg-green-600 hover:bg-green-700 gap-2">
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   {sending ? "Sending..." : `Send to ${selectedLeads.length} leads`}
