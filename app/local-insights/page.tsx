@@ -6,8 +6,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Search, Copy, Phone, Mail, MapPin, Star, Loader2 } from "lucide-react";
+import { Trash2, Search, Copy, Phone, MapPin, Star, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
+import ExportMenu from "@/components/ui/export-menu";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -25,11 +26,9 @@ export default function LocalInsightsPage() {
       toast({ title: "Enter niche and location", variant: "destructive" });
       return;
     }
-    
     setLoading(true);
     setLeads([]);
     setStats(null);
-    
     try {
       const res = await fetch(`${API}/local-insights`, {
         method: "POST",
@@ -37,7 +36,6 @@ export default function LocalInsightsPage() {
         body: JSON.stringify({ niche, location }),
       });
       const data = await res.json();
-      
       if (data.leads && data.leads.length > 0) {
         setLeads(data.leads);
         setStats(data.stats);
@@ -51,6 +49,17 @@ export default function LocalInsightsPage() {
     setLoading(false);
   };
 
+  const filtered = search.trim()
+    ? leads.filter(l =>
+        l.name?.toLowerCase().includes(search.toLowerCase()) ||
+        l.address?.toLowerCase().includes(search.toLowerCase()) ||
+        l.email?.toLowerCase().includes(search.toLowerCase())
+      )
+    : leads;
+
+  const toggleAll = (checked: boolean) => setSelectedIds(checked ? filtered.map(l => l._id) : []);
+  const toggleOne = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
   const bulkDelete = async () => {
     await fetch(`${API}/leads/bulk-delete`, {
       method: "POST",
@@ -62,30 +71,14 @@ export default function LocalInsightsPage() {
     setSelectedIds([]);
   };
 
-  const filtered = search.trim()
-    ? leads.filter(l => 
-        l.name?.toLowerCase().includes(search.toLowerCase()) ||
-        l.address?.toLowerCase().includes(search.toLowerCase()) ||
-        l.email?.toLowerCase().includes(search.toLowerCase())
-      )
-    : leads;
-
-  const toggleAll = (checked: boolean) => {
-    setSelectedIds(checked ? filtered.map(l => l._id) : []);
-  };
-
-  const toggleOne = (id: string) => {
-    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
-
   const copyText = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     toast({ title: `📋 ${label} copied!` });
   };
 
   const openWhatsApp = (phone: string) => {
-    const clean = phone.replace(/[^0-9+]/g, '');
-    window.open(`https://wa.me/${clean}`, '_blank');
+    const clean = phone.replace(/[^0-9+]/g, "");
+    window.open(`https://wa.me/${clean}`, "_blank");
   };
 
   return (
@@ -100,30 +93,16 @@ export default function LocalInsightsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label className="text-xs text-gray-400 mb-1 block">Business Type *</label>
-            <Input
-              placeholder="e.g. Auto Parts Shop"
-              value={niche}
-              onChange={e => setNiche(e.target.value)}
-              className="bg-white/5 border-white/10"
-            />
+            <Input placeholder="e.g. Auto Parts Shop" value={niche} onChange={e => setNiche(e.target.value)} className="bg-white/5 border-white/10" />
           </div>
           <div>
             <label className="text-xs text-gray-400 mb-1 block">Location *</label>
-            <Input
-              placeholder="e.g. Lahore, Pakistan"
-              value={location}
-              onChange={e => setLocation(e.target.value)}
-              className="bg-white/5 border-white/10"
-            />
+            <Input placeholder="e.g. Lahore, Pakistan" value={location} onChange={e => setLocation(e.target.value)} className="bg-white/5 border-white/10" />
           </div>
           <div className="flex items-end">
-            <Button
-              onClick={handleSearch}
-              disabled={loading}
-              className="bg-[#6366F1] hover:bg-[#4f46e5] w-full gap-2"
-            >
+            <Button onClick={handleSearch} disabled={loading} className="bg-[#6366F1] hover:bg-[#4f46e5] w-full gap-2">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
-              {loading ? "Searching Maps..." : "Search Google Maps"}
+              {loading ? "Searching..." : "Search Maps"}
             </Button>
           </div>
         </div>
@@ -134,7 +113,7 @@ export default function LocalInsightsPage() {
         <div className="flex flex-wrap gap-4 text-sm text-gray-400">
           <span>📍 {stats.total} places</span>
           <span>🌐 {stats.withWebsite} websites</span>
-          <span>📧 {stats.withEmail} emails found</span>
+          <span>📧 {stats.withEmail} emails</span>
           <span>💾 {stats.saved} saved</span>
         </div>
       )}
@@ -150,17 +129,13 @@ export default function LocalInsightsPage() {
       {!loading && leads.length > 0 && (
         <div className="glass-card p-6 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <h2 className="text-xl font-semibold">{leads.length} Local Businesses</h2>
+            <h2 className="text-xl font-semibold">{leads.length} Businesses</h2>
             <div className="flex items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Filter..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="pl-9 w-48 bg-white/5 border-white/10"
-                />
+                <Input placeholder="Filter..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48 bg-white/5 border-white/10" />
               </div>
+              <ExportMenu data={filtered} filename="local-businesses" />
               {selectedIds.length > 0 && (
                 <Button variant="destructive" size="sm" onClick={bulkDelete}>
                   <Trash2 className="h-4 w-4 mr-1" /> Delete ({selectedIds.length})
@@ -173,9 +148,7 @@ export default function LocalInsightsPage() {
             <Table>
               <TableHeader>
                 <TableRow className="border-white/5">
-                  <TableHead className="w-10">
-                    <Checkbox checked={selectedIds.length === filtered.length && filtered.length > 0} onCheckedChange={toggleAll} />
-                  </TableHead>
+                  <TableHead className="w-10"><Checkbox checked={selectedIds.length === filtered.length && filtered.length > 0} onCheckedChange={toggleAll} /></TableHead>
                   <TableHead>Business</TableHead>
                   <TableHead>Address</TableHead>
                   <TableHead>Contact</TableHead>
@@ -227,14 +200,13 @@ export default function LocalInsightsPage() {
         </div>
       )}
 
-      {/* Empty State */}
       {!loading && leads.length === 0 && (
         <div className="glass-card p-12 text-center">
           <MapPin className="h-12 w-12 mx-auto text-gray-600 mb-4" />
           <h3 className="text-lg font-medium text-gray-400 mb-2">No local businesses yet</h3>
-          <p className="text-sm text-gray-500">Enter a business type and location, then click Search Google Maps.</p>
+          <p className="text-sm text-gray-500">Enter a business type and location, then click Search Maps.</p>
         </div>
       )}
     </motion.div>
   );
-}
+        }
