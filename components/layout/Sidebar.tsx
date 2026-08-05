@@ -2,12 +2,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { LayoutDashboard, Search, Send, Settings, Zap } from "lucide-react";
+import { LayoutDashboard, Search, Send, Settings, Zap, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/finder", label: "Lead Finder", icon: Search },
+  { href: "/local-insights", label: "Local Insights", icon: MapPin },
   { href: "/outreach", label: "Outreach", icon: Send },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
@@ -45,4 +46,4 @@ export default function Sidebar() {
       </nav>
     </aside>
   );
-              }
+}
