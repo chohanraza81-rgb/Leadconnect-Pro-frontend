@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
-import { Save, CheckCircle2, Loader2 } from "lucide-react";
+import { Save, CheckCircle2, Loader2, Key, Mail, Globe, Bot, Send } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -13,6 +13,7 @@ export default function SettingsPage() {
   const [appPassword, setAppPassword] = useState("");
   const [serpApiKey, setSerpApiKey] = useState("");
   const [groqApiKey, setGroqApiKey] = useState("");
+  const [resendApiKey, setResendApiKey] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const { toast } = useToast();
@@ -26,23 +27,78 @@ export default function SettingsPage() {
           setAppPassword(data.appPassword || "");
           setSerpApiKey(data.serpApiKey || "");
           setGroqApiKey(data.groqApiKey || "");
+          setResendApiKey(data.resendApiKey || "");
         }
-      });
+      })
+      .catch(() => {});
   }, []);
 
   const saveSettings = async () => {
     setSaving(true);
     setSaved(false);
-    await fetch(`${API}/settings`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ gmail, appPassword, serpApiKey, groqApiKey }),
-    });
+    try {
+      await fetch(`${API}/settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gmail,
+          appPassword,
+          serpApiKey,
+          groqApiKey,
+          resendApiKey,
+        }),
+      });
+      setSaved(true);
+      toast({ title: "✅ Settings saved successfully!" });
+      setTimeout(() => setSaved(false), 2500);
+    } catch {
+      toast({ title: "❌ Failed to save settings", variant: "destructive" });
+    }
     setSaving(false);
-    setSaved(true);
-    toast({ title: "Settings saved successfully" });
-    setTimeout(() => setSaved(false), 2000);
   };
+
+  const fields = [
+    {
+      label: "Your Gmail",
+      value: gmail,
+      setter: setGmail,
+      placeholder: "youremail@gmail.com",
+      icon: Mail,
+      type: "email",
+    },
+    {
+      label: "Gmail App Password",
+      value: appPassword,
+      setter: setAppPassword,
+      placeholder: "16-character app password",
+      icon: Key,
+      type: "password",
+    },
+    {
+      label: "SerpApi Key",
+      value: serpApiKey,
+      setter: setSerpApiKey,
+      placeholder: "SerpApi key from serpapi.com",
+      icon: Globe,
+      type: "password",
+    },
+    {
+      label: "Groq API Key",
+      value: groqApiKey,
+      setter: setGroqApiKey,
+      placeholder: "gsk_... from console.groq.com",
+      icon: Bot,
+      type: "password",
+    },
+    {
+      label: "Resend API Key",
+      value: resendApiKey,
+      setter: setResendApiKey,
+      placeholder: "re_... from resend.com",
+      icon: Send,
+      type: "password",
+    },
+  ];
 
   return (
     <motion.div
@@ -51,46 +107,33 @@ export default function SettingsPage() {
       className="max-w-xl mx-auto space-y-8"
     >
       <h1 className="text-4xl font-bold bg-gradient-to-r from-[#6366F1] to-purple-400 bg-clip-text text-transparent">
-        Settings
+        ⚙️ Settings
       </h1>
+      <p className="text-sm text-gray-400 -mt-4">
+        Your API keys are stored securely in MongoDB. They override the .env values.
+      </p>
+
       <div className="glass-card p-8 space-y-6">
-        <div className="space-y-2">
-          <label className="text-sm text-gray-400">Your Gmail</label>
-          <Input
-            value={gmail}
-            onChange={e => setGmail(e.target.value)}
-            className="bg-white/5 border-white/10"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-gray-400">Gmail App Password</label>
-          <Input
-            type="password"
-            value={appPassword}
-            onChange={e => setAppPassword(e.target.value)}
-            className="bg-white/5 border-white/10"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-gray-400">SerpApi Key</label>
-          <Input
-            value={serpApiKey}
-            onChange={e => setSerpApiKey(e.target.value)}
-            className="bg-white/5 border-white/10"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-gray-400">Groq API Key</label>
-          <Input
-            value={groqApiKey}
-            onChange={e => setGroqApiKey(e.target.value)}
-            className="bg-white/5 border-white/10"
-          />
-        </div>
+        {fields.map(field => (
+          <div key={field.label} className="space-y-2">
+            <label className="text-sm text-gray-400 flex items-center gap-2">
+              <field.icon className="h-4 w-4" />
+              {field.label}
+            </label>
+            <Input
+              type={field.type}
+              value={field.value}
+              onChange={e => field.setter(e.target.value)}
+              placeholder={field.placeholder}
+              className="bg-white/5 border-white/10 focus-visible:ring-[#6366F1]"
+            />
+          </div>
+        ))}
+
         <Button
           onClick={saveSettings}
           disabled={saving}
-          className="w-full bg-[#6366F1] hover:bg-[#4f46e5] h-12 gap-2"
+          className="w-full bg-[#6366F1] hover:bg-[#4f46e5] h-12 gap-2 text-base"
         >
           {saving ? (
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -99,9 +142,9 @@ export default function SettingsPage() {
           ) : (
             <Save className="h-5 w-5" />
           )}
-          {saving ? "Saving..." : saved ? "Saved!" : "Save Settings"}
+          {saving ? "Saving..." : saved ? "Saved!" : "Save All Settings"}
         </Button>
       </div>
     </motion.div>
   );
-      }
+}
