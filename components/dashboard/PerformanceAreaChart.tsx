@@ -4,12 +4,12 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 function mergeData(whatsapp: any[], emails: any[]) {
   const map: Record<string, { date: string; whatsapp: number; emails: number }> = {};
-  
+
   (whatsapp || []).forEach(w => {
     const key = w._id || w.date || '';
     if (key) map[key] = { date: key, whatsapp: w.count || 0, emails: 0 };
   });
-  
+
   (emails || []).forEach(e => {
     const key = e._id || e.date || '';
     if (key) {
@@ -17,10 +17,10 @@ function mergeData(whatsapp: any[], emails: any[]) {
       else map[key] = { date: key, whatsapp: 0, emails: e.count || 0 };
     }
   });
-  
+
   const result = Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
-  
-  // If empty, return last 30 days placeholder
+
+  // If completely empty, build a placeholder for the last 30 days
   if (result.length === 0) {
     const days = [];
     for (let i = 29; i >= 0; i--) {
@@ -34,7 +34,7 @@ function mergeData(whatsapp: any[], emails: any[]) {
     }
     return days;
   }
-  
+
   return result;
 }
 
@@ -70,4 +70,4 @@ export default function PerformanceAreaChart({ data }: { data: { whatsapp: any[]
       </CardContent>
     </Card>
   );
-    }
+}
