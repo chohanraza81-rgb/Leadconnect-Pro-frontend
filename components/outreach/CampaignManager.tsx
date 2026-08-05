@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, RefreshCw, Phone, Send, Sparkles, Loader2, Mail, MapPin, ChevronDown } from "lucide-react";
+import { Search, RefreshCw, Phone, Send, Sparkles, Loader2, Mail, MapPin } from "lucide-react";
 import { motion } from "framer-motion";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -56,13 +56,16 @@ export default function CampaignManager() {
 
   useEffect(() => {
     fetchLeads();
-    fetch(`${API}/leads/filters`).then(r => r.json()).then(d => {
-      setFilterOptions({ niches: d.niches || [], countries: d.countries || [] });
-    }).catch(() => {});
+    fetch(`${API}/leads/filters`)
+      .then(r => r.json())
+      .then(d => {
+        setFilterOptions({ niches: d.niches || [], countries: d.countries || [] });
+      })
+      .catch(() => {});
   }, [fetchLeads]);
 
   const toggleSelect = (id: string) => {
-    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    setSelectedIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
   };
 
   const toggleAll = (checked: boolean) => setSelectedIds(checked ? leads.map(l => l._id) : []);
@@ -70,11 +73,13 @@ export default function CampaignManager() {
   const updateLeadStatus = async (leadId: string, newStatus: string) => {
     try {
       await fetch(`${API}/leads/${leadId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
-      setLeads(prev => prev.map(l => l._id === leadId ? { ...l, status: newStatus } : l));
+      setLeads(prev =>
+        prev.map(l => (l._id === leadId ? { ...l, status: newStatus } : l))
+      );
       toast({ title: `Status updated to ${newStatus}` });
     } catch {
       toast({ title: "Failed to update status", variant: "destructive" });
@@ -91,7 +96,10 @@ export default function CampaignManager() {
     selected.forEach((lead, i) => {
       const cleanPhone = lead.phone.replace(/[^0-9+]/g, "");
       setTimeout(() => {
-        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+        window.open(
+          `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`,
+          "_blank"
+        );
         fetch(`${API}/leads/${lead._id}/whatsapp-click`, { method: "PUT" }).catch(() => {});
       }, i * 800);
     });
@@ -130,8 +138,10 @@ export default function CampaignManager() {
     setMessage(templates[idx]);
   };
 
-  // Get unique cities from leads (optional)
-  const cities = [...new Set(leads.map(l => l.address).filter(Boolean))].slice(0, 20);
+  // Extract unique cities from leads (fixed with Array.from)
+  const cities = Array.from(
+    new Set(leads.map(l => l.address).filter(Boolean))
+  ).slice(0, 20);
 
   return (
     <div className="space-y-6">
@@ -148,70 +158,140 @@ export default function CampaignManager() {
               className="pl-9 w-48 bg-white/5 border-white/10"
             />
           </div>
-          <Button onClick={fetchLeads} variant="outline" size="sm"><RefreshCw className="h-4 w-4" /></Button>
+          <Button onClick={fetchLeads} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
-        <Select value={filters.niche} onValueChange={v => setFilters(prev => ({ ...prev, niche: v }))}>
-          <SelectTrigger className="w-[160px] bg-white/5 border-white/10 text-sm"><SelectValue placeholder="Niche" /></SelectTrigger>
+        <Select
+          value={filters.niche}
+          onValueChange={v => setFilters(prev => ({ ...prev, niche: v }))}
+        >
+          <SelectTrigger className="w-[160px] bg-white/5 border-white/10 text-sm">
+            <SelectValue placeholder="Niche" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Niches</SelectItem>
-            {filterOptions.niches.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+            {filterOptions.niches.map(n => (
+              <SelectItem key={n} value={n}>
+                {n}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
-        <Select value={filters.country} onValueChange={v => setFilters(prev => ({ ...prev, country: v }))}>
-          <SelectTrigger className="w-[160px] bg-white/5 border-white/10 text-sm"><SelectValue placeholder="Country" /></SelectTrigger>
+        <Select
+          value={filters.country}
+          onValueChange={v => setFilters(prev => ({ ...prev, country: v }))}
+        >
+          <SelectTrigger className="w-[160px] bg-white/5 border-white/10 text-sm">
+            <SelectValue placeholder="Country" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Countries</SelectItem>
-            {filterOptions.countries.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            {filterOptions.countries.map(c => (
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
-        <Select value={filters.city} onValueChange={v => setFilters(prev => ({ ...prev, city: v }))}>
-          <SelectTrigger className="w-[160px] bg-white/5 border-white/10 text-sm"><SelectValue placeholder="City" /></SelectTrigger>
+        <Select
+          value={filters.city}
+          onValueChange={v => setFilters(prev => ({ ...prev, city: v }))}
+        >
+          <SelectTrigger className="w-[160px] bg-white/5 border-white/10 text-sm">
+            <SelectValue placeholder="City" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Cities</SelectItem>
-            {cities.map(city => <SelectItem key={city} value={city}>{city}</SelectItem>)}
+            {cities.map(city => (
+              <SelectItem key={city} value={city}>
+                {city}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
-        <Button onClick={fetchLeads} variant="outline" size="sm" className="border-[#6366F1] text-[#6366F1]">
+        <Button
+          onClick={fetchLeads}
+          variant="outline"
+          size="sm"
+          className="border-[#6366F1] text-[#6366F1]"
+        >
           Apply Filters
         </Button>
       </div>
 
-      {/* AI Generator (same as before) */}
+      {/* AI Generator */}
       <div className="glass-card p-6 space-y-4">
-        <p className="text-sm font-medium text-gray-300">🤖 Generate WhatsApp Message Options</p>
+        <p className="text-sm font-medium text-gray-300">
+          🤖 Generate WhatsApp Message Options
+        </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <Input placeholder="Niche (e.g. Auto Parts)" value={aiNiche} onChange={e => setAiNiche(e.target.value)} className="bg-white/5 border-white/10" />
-          <Input placeholder="Your Offer / Value" value={aiOffer} onChange={e => setAiOffer(e.target.value)} className="bg-white/5 border-white/10" />
-          <Input placeholder="Your Name (Signature)" value={aiSignature} onChange={e => setAiSignature(e.target.value)} className="bg-white/5 border-white/10" />
+          <Input
+            placeholder="Niche (e.g. Auto Parts)"
+            value={aiNiche}
+            onChange={e => setAiNiche(e.target.value)}
+            className="bg-white/5 border-white/10"
+          />
+          <Input
+            placeholder="Your Offer / Value"
+            value={aiOffer}
+            onChange={e => setAiOffer(e.target.value)}
+            className="bg-white/5 border-white/10"
+          />
+          <Input
+            placeholder="Your Name (Signature)"
+            value={aiSignature}
+            onChange={e => setAiSignature(e.target.value)}
+            className="bg-white/5 border-white/10"
+          />
         </div>
-        <Button onClick={generateWhatsAppTemplates} disabled={generating} className="bg-[#6366F1] gap-2" size="sm">
-          {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+        <Button
+          onClick={generateWhatsAppTemplates}
+          disabled={generating}
+          className="bg-[#6366F1] gap-2"
+          size="sm"
+        >
+          {generating ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
           {generating ? "Generating..." : "Generate 3 Options"}
         </Button>
 
         {templates.length > 0 && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2 mt-2">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-2 mt-2"
+          >
             <p className="text-xs text-gray-400">Select the best option:</p>
             {templates.map((tmpl, idx) => (
               <div
                 key={idx}
                 className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                  selectedTemplate === idx ? "border-[#6366F1] bg-[#6366F1]/10" : "border-white/10 hover:border-white/20"
+                  selectedTemplate === idx
+                    ? "border-[#6366F1] bg-[#6366F1]/10"
+                    : "border-white/10 hover:border-white/20"
                 }`}
                 onClick={() => selectTemplate(idx)}
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                    selectedTemplate === idx ? "border-[#6366F1]" : "border-gray-500"
-                  }`}>
-                    {selectedTemplate === idx && <div className="w-2 h-2 rounded-full bg-[#6366F1]" />}
+                  <div
+                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      selectedTemplate === idx ? "border-[#6366F1]" : "border-gray-500"
+                    }`}
+                  >
+                    {selectedTemplate === idx && (
+                      <div className="w-2 h-2 rounded-full bg-[#6366F1]" />
+                    )}
                   </div>
                   <span className="text-xs font-medium">Option {idx + 1}</span>
                 </div>
@@ -237,7 +317,11 @@ export default function CampaignManager() {
       {selectedIds.length > 0 && (
         <div className="flex items-center gap-3 bg-black/30 p-3 rounded-xl border border-white/5">
           <span className="text-sm text-gray-400">{selectedIds.length} selected</span>
-          <Button onClick={openWhatsAppBulk} className="bg-green-600 hover:bg-green-700 gap-2" size="sm">
+          <Button
+            onClick={openWhatsAppBulk}
+            className="bg-green-600 hover:bg-green-700 gap-2"
+            size="sm"
+          >
             <Send className="h-4 w-4" /> Open WhatsApp
           </Button>
         </div>
@@ -246,7 +330,9 @@ export default function CampaignManager() {
       {/* Lead Cards Grid */}
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-48 bg-white/5 rounded-xl" />)}
+          {[...Array(6)].map((_, i) => (
+            <Skeleton key={i} className="h-48 bg-white/5 rounded-xl" />
+          ))}
         </div>
       ) : leads.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
@@ -269,7 +355,9 @@ export default function CampaignManager() {
               <Card
                 key={lead._id}
                 className={`bg-black/40 border ${
-                  selectedIds.includes(lead._id) ? "border-[#6366F1]" : "border-white/5"
+                  selectedIds.includes(lead._id)
+                    ? "border-[#6366F1]"
+                    : "border-white/5"
                 } hover:border-white/10 transition-all`}
               >
                 <CardContent className="p-4 space-y-3">
@@ -280,8 +368,12 @@ export default function CampaignManager() {
                         onCheckedChange={() => toggleSelect(lead._id)}
                       />
                       <div>
-                        <h3 className="font-semibold text-white">{lead.name || "Unknown"}</h3>
-                        <p className="text-xs text-gray-400">{lead.company || "—"}</p>
+                        <h3 className="font-semibold text-white">
+                          {lead.name || "Unknown"}
+                        </h3>
+                        <p className="text-xs text-gray-400">
+                          {lead.company || "—"}
+                        </p>
                         {lead.address && (
                           <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
                             <MapPin className="h-3 w-3" />
@@ -295,13 +387,14 @@ export default function CampaignManager() {
                   <div className="flex items-center gap-2 flex-wrap">
                     {lead.phone && (
                       <a
-                        href={`https://wa.me/${lead.phone.replace(/[^0-9+]/g, '')}`}
+                        href={`https://wa.me/${lead.phone.replace(/[^0-9+]/g, "")}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-500/10 text-green-400 text-xs hover:bg-green-500/20 transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          fetch(`${API}/leads/${lead._id}/whatsapp-click`, { method: 'PUT' }).catch(() => {});
+                        onClick={() => {
+                          fetch(`${API}/leads/${lead._id}/whatsapp-click`, {
+                            method: "PUT",
+                          }).catch(() => {});
                         }}
                       >
                         <Phone className="h-3 w-3" /> {lead.phone}
@@ -325,14 +418,16 @@ export default function CampaignManager() {
                     <span className="text-xs text-gray-500">Status:</span>
                     <Select
                       value={lead.status || "new"}
-                      onValueChange={(val) => updateLeadStatus(lead._id, val)}
+                      onValueChange={val => updateLeadStatus(lead._id, val)}
                     >
                       <SelectTrigger className="h-7 px-2 text-xs bg-white/5 border-white/10 w-[120px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         {STATUS_OPTIONS.map(s => (
-                          <SelectItem key={s} value={s} className="text-xs capitalize">{s}</SelectItem>
+                          <SelectItem key={s} value={s} className="text-xs capitalize">
+                            {s}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
