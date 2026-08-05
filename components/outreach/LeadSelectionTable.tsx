@@ -25,8 +25,8 @@ export default function LeadSelectionTable() {
 
   // Bulk email modal
   const [emailModalOpen, setEmailModalOpen] = useState(false);
-  const [emailSubject, setEmailSubject] = useState("");
-  const [emailOffer, setEmailOffer] = useState("");
+  const [emailNiche, setEmailNiche] = useState("");       // niche for template
+  const [emailOffer, setEmailOffer] = useState("");        // your offer / value prop
   const [signature, setSignature] = useState("");
   const [generating, setGenerating] = useState(false);
   const [templates, setTemplates] = useState<string[]>([]);
@@ -78,7 +78,7 @@ export default function LeadSelectionTable() {
       toast({ title: "Select at least one lead with email", variant: "destructive" });
       return;
     }
-    setEmailSubject("");
+    setEmailNiche("");
     setEmailOffer("");
     setSignature("");
     setTemplates([]);
@@ -88,8 +88,8 @@ export default function LeadSelectionTable() {
   };
 
   const generateTemplates = async () => {
-    if (!emailSubject.trim() || !emailOffer.trim()) {
-      toast({ title: "Subject and offer are required", variant: "destructive" });
+    if (!emailNiche.trim() || !emailOffer.trim()) {
+      toast({ title: "Niche and offer are required", variant: "destructive" });
       return;
     }
     setGenerating(true);
@@ -97,12 +97,12 @@ export default function LeadSelectionTable() {
       const res = await fetch(`${API}/outreach/generate-template`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject: emailSubject, offer: emailOffer, signature }),
+        body: JSON.stringify({ subject: emailNiche, offer: emailOffer, signature }), // subject = niche
       });
       const data = await res.json();
       if (data.templates && data.templates.length > 0) {
         setTemplates(data.templates);
-        setEditableTemplates(data.templates.map(t => t)); // make editable copies
+        setEditableTemplates(data.templates.map(t => t));
         setSelectedTemplate(0);
       } else {
         toast({ title: "AI generation failed", variant: "destructive" });
@@ -121,7 +121,7 @@ export default function LeadSelectionTable() {
 
   const sendBulkEmail = async () => {
     if (editableTemplates.length === 0) return;
-    const body = editableTemplates[selectedTemplate]; // use the edited version
+    const body = editableTemplates[selectedTemplate];
     setSending(true);
     let success = 0;
     for (const lead of selectedLeads) {
@@ -129,7 +129,7 @@ export default function LeadSelectionTable() {
         await fetch(`${API}/outreach/bulk-send`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ to: lead.email, subject: emailSubject, body, leadId: lead._id }),
+          body: JSON.stringify({ to: lead.email, subject: emailNiche, body, leadId: lead._id }),
         });
         success++;
       } catch {}
@@ -197,7 +197,7 @@ export default function LeadSelectionTable() {
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="bg-[#111] border-white/10">
-          <DialogHeader><DialogTitle>Delete {selectedIds.length} leads?</DialogTitle><DialogDescription>This cannot be undone.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>Delete {selectedIds.length} leads?</DialogTitle><DialogDescription>Cannot be undone.</DialogDescription></DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
             <Button variant="destructive" onClick={bulkDelete}>Delete</Button>
@@ -211,30 +211,30 @@ export default function LeadSelectionTable() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-[#6366F1]" /> Bulk Email to {selectedLeads.length} leads</DialogTitle>
             <DialogDescription>
-              Templates use <code className="bg-white/5 px-1 rounded">{"{{firstName}}"}</code> and <code className="bg-white/5 px-1 rounded">{"{{company}}"}</code> placeholders – they will be replaced automatically.
+              AI will generate a professional template with <code className="bg-white/5 px-1 rounded">{"{{firstName}}"}</code> and <code className="bg-white/5 px-1 rounded">{"{{company}}"}</code> placeholders. You can edit before sending.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-sm text-gray-400 mb-1 block">Email Subject</label>
-              <Input placeholder="e.g. Partnership Opportunity" value={emailSubject} onChange={e => setEmailSubject(e.target.value)} className="bg-white/5 border-white/10" />
+              <label className="text-sm text-gray-400 mb-1 block">Niche / Industry (e.g. Products Research)</label>
+              <Input placeholder="Products Research" value={emailNiche} onChange={e => setEmailNiche(e.target.value)} className="bg-white/5 border-white/10" />
             </div>
             <div>
-              <label className="text-sm text-gray-400 mb-1 block">Your Offer / Key Points</label>
-              <Textarea placeholder="e.g. We offer free SEO audit" value={emailOffer} onChange={e => setEmailOffer(e.target.value)} rows={3} className="bg-white/5 border-white/10" />
+              <label className="text-sm text-gray-400 mb-1 block">Your Offer / Value Proposition</label>
+              <Textarea placeholder="e.g. Free complete products research report to test quality" value={emailOffer} onChange={e => setEmailOffer(e.target.value)} rows={3} className="bg-white/5 border-white/10" />
             </div>
             <div>
               <label className="text-sm text-gray-400 mb-1 block">Your Name (Signature)</label>
-              <Input placeholder="e.g. Ali from HighTech" value={signature} onChange={e => setSignature(e.target.value)} className="bg-white/5 border-white/10" />
+              <Input placeholder="e.g. Albert, from High-tech" value={signature} onChange={e => setSignature(e.target.value)} className="bg-white/5 border-white/10" />
             </div>
-            <Button onClick={generateTemplates} disabled={generating || !emailSubject || !emailOffer} className="bg-[#6366F1] gap-2 w-full">
+            <Button onClick={generateTemplates} disabled={generating || !emailNiche || !emailOffer} className="bg-[#6366F1] gap-2 w-full">
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {generating ? "Generating..." : "Generate Email Templates"}
             </Button>
 
             {editableTemplates.length > 0 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-                <p className="text-sm text-gray-400">Select a template and edit if needed:</p>
+                <p className="text-sm text-gray-400">Select and edit a template:</p>
                 {editableTemplates.map((tmpl, idx) => (
                   <div key={idx} className={`p-3 rounded-lg border cursor-pointer transition-all ${selectedTemplate === idx ? "border-[#6366F1] bg-[#6366F1]/10" : "border-white/10 hover:border-white/20"}`} onClick={() => setSelectedTemplate(idx)}>
                     <div className="flex items-center gap-2 mb-2">
