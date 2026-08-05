@@ -70,4 +70,4 @@ export default function PerformanceAreaChart({ data }: { data: { whatsapp: any[]
       </CardContent>
     </Card>
   );
-}
+                                                                }
