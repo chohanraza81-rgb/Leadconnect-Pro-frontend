@@ -28,15 +28,10 @@ export default function Sidebar() {
           const active = pathname === link.href;
           return (
             <Link key={link.href} href={link.href}>
-              <motion.div
-                whileHover={{ x: 4 }}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors",
-                  active
-                    ? "bg-[#6366F1]/20 text-white"
-                    : "text-gray-400 hover:text-white hover:bg-white/5"
-                )}
-              >
+              <motion.div whileHover={{ x: 4 }} className={cn(
+                "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors",
+                active ? "bg-[#6366F1]/20 text-white" : "text-gray-400 hover:text-white hover:bg-white/5"
+              )}>
                 <link.icon className="h-5 w-5" />
                 {link.label}
               </motion.div>
