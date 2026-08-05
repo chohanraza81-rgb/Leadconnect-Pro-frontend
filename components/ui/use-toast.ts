@@ -1,8 +1,5 @@
 "use client"
-import * as React from "react"
-
-const TOAST_LIMIT = 5
-const TOAST_REMOVE_DELAY = 5000
+import { useState, useEffect, useCallback } from "react"
 
 type ToastProps = {
   id: string
@@ -12,41 +9,31 @@ type ToastProps = {
 }
 
 let count = 0
+function genId() { return `${++count}` }
 
-function genId() {
-  count = (count + 1) % Number.MAX_VALUE
-  return count.toString()
-}
+let globalListeners: Array<() => void> = []
+let globalToasts: ToastProps[] = []
 
-const toastState: { toasts: ToastProps[] } = { toasts: [] }
-const listeners: Array<(state: typeof toastState) => void> = []
+function emit() { globalListeners.forEach(l => l()) }
 
-function dispatch(action: any) {
-  switch (action.type) {
-    case "ADD_TOAST":
-      toastState.toasts = [...toastState.toasts, action.toast].slice(0, TOAST_LIMIT)
-      break
-    case "REMOVE_TOAST":
-      toastState.toasts = toastState.toasts.filter(t => t.id !== action.toastId)
-      break
-  }
-  listeners.forEach(l => l(toastState))
-}
-
-export function toast({ title, description, variant = "default" }: Omit<ToastProps, "id">) {
+export function toast(props: Omit<ToastProps, "id">) {
   const id = genId()
-  dispatch({ type: "ADD_TOAST", toast: { id, title, description, variant } })
-  setTimeout(() => dispatch({ type: "REMOVE_TOAST", toastId: id }), TOAST_REMOVE_DELAY)
+  globalToasts = [...globalToasts, { id, ...props }].slice(-5)
+  emit()
+  setTimeout(() => {
+    globalToasts = globalToasts.filter(t => t.id !== id)
+    emit()
+  }, 4000)
 }
 
 export function useToast() {
-  const [state, setState] = React.useState(toastState)
-  React.useEffect(() => {
-    listeners.push(setState)
-    return () => {
-      const index = listeners.indexOf(setState)
-      if (index > -1) listeners.splice(index, 1)
-    }
+  const [toasts, setToasts] = useState<ToastProps[]>(globalToasts)
+  
+  useEffect(() => {
+    const listener = () => setToasts([...globalToasts])
+    globalListeners.push(listener)
+    return () => { globalListeners = globalListeners.filter(l => l !== listener) }
   }, [])
-  return { ...state, toast }
+
+  return { toasts }
 }
