@@ -1,6 +1,6 @@
 {
   "name": "leadconnect-frontend",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -13,6 +13,7 @@
     "react-dom": "^18",
     "recharts": "^2.9.0",
     "react-simple-maps": "^3.0.0",
+    "react-tooltip": "^5.21.0",
     "framer-motion": "^10.16.4",
     "lucide-react": "^0.294.0",
     "@radix-ui/react-checkbox": "^1.0.4",
@@ -26,8 +27,7 @@
     "clsx": "^2.0.0",
     "tailwind-merge": "^2.0.0",
     "tailwindcss-animate": "^1.0.7",
-    "d3-scale": "^4.0.2",
-    "react-tooltip": "^5.21.0"
+    "d3-scale": "^4.0.2"
   },
   "devDependencies": {
     "typescript": "^5",
