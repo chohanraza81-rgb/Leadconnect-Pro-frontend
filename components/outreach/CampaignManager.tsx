@@ -13,6 +13,22 @@ import { motion } from "framer-motion";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
+// Country code mapping
+const countryCodeMap: Record<string, string> = {
+  PK: "+92",
+  IN: "+91",
+  US: "+1",
+  GB: "+44",
+  AE: "+971",
+  SA: "+966",
+  CA: "+1",
+  AU: "+61",
+  DE: "+49",
+  MY: "+60",
+  TR: "+90",
+  SG: "+65",
+};
+
 export default function CampaignManager() {
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,15 +139,22 @@ export default function CampaignManager() {
           </SelectContent>
         </Select>
         <Select value={filters.country} onValueChange={v => setFilters(prev => ({ ...prev, country: v }))}>
-          <SelectTrigger className="w-[140px] bg-white/5 border-white/10 text-sm"><SelectValue placeholder="Country" /></SelectTrigger>
+          <SelectTrigger className="w-[160px] bg-white/5 border-white/10 text-sm"><SelectValue placeholder="Country" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Countries</SelectItem>
-            <SelectItem value="PK">🇵🇰 Pakistan</SelectItem>
-            {filterOptions.countries.filter(c => c !== "PK").map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            <SelectItem value="PK">🇵🇰 Pakistan (+92)</SelectItem>
+            <SelectItem value="IN">🇮🇳 India (+91)</SelectItem>
+            <SelectItem value="US">🇺🇸 USA (+1)</SelectItem>
+            <SelectItem value="GB">🇬🇧 UK (+44)</SelectItem>
+            <SelectItem value="AE">🇦🇪 UAE (+971)</SelectItem>
+            <SelectItem value="SA">🇸🇦 Saudi Arabia (+966)</SelectItem>
+            {filterOptions.countries
+              .filter(c => !["PK", "IN", "US", "GB", "AE", "SA"].includes(c))
+              .map(c => <SelectItem key={c} value={c}>{c} ({countryCodeMap[c] || ""})</SelectItem>)}
           </SelectContent>
         </Select>
         <Button onClick={fetchLeads} variant="outline" size="sm" className="border-[#6366F1] text-[#6366F1]">
-          Apply
+          Apply Filters
         </Button>
       </div>
 
