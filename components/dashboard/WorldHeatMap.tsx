@@ -24,22 +24,10 @@ const numericIdToCode: Record<string, string> = {
 
 export default function WorldHeatMap({ data }: { data: Record<string, number> }) {
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
-  const [error, setError] = useState(false);
 
   const values = Object.values(data || {}).filter(v => v > 0);
   const maxVal = Math.max(...values, 1);
   const colorScale = scaleLinear<string>().domain([0, maxVal]).range(["#1a1a2e", "#6366F1"]);
-
-  if (error) {
-    return (
-      <Card className="bg-black/40 backdrop-blur-xl border-white/10">
-        <CardHeader><CardTitle className="text-lg">🌍 Global Lead Distribution</CardTitle></CardHeader>
-        <CardContent>
-          <p className="text-red-400 text-center py-8">Failed to load map. Check world-110m.json.</p>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <Card className="bg-black/40 backdrop-blur-xl border-white/10">
@@ -50,13 +38,9 @@ export default function WorldHeatMap({ data }: { data: Record<string, number> })
             projectionConfig={{ scale: 140 }}
             style={{ width: "100%", height: "auto" }}
           >
-            <Geographies
-              geography={geoUrl}
-              onError={() => setError(true)}
-            >
+            <Geographies geography={geoUrl}>
               {({ geographies }) =>
                 geographies.map(geo => {
-                  // Use numeric ID to find country code
                   const countryCode = numericIdToCode[geo.id];
                   const value = countryCode ? (data[countryCode] || 0) : 0;
                   return (
