@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Search, Filter, RefreshCw, Mail, Send, Sparkles, Loader2, CheckCircle2, Radio } from "lucide-react";
+import { Trash2, Search, Filter, RefreshCw, Mail, Send, Sparkles, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -23,10 +23,10 @@ export default function LeadSelectionTable() {
   const [filterOptions, setFilterOptions] = useState({ niches: [], countries: [], statuses: ["new", "contacted", "replied", "converted"] });
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  // Bulk email modal
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailOffer, setEmailOffer] = useState("");
+  const [signature, setSignature] = useState("");
   const [generating, setGenerating] = useState(false);
   const [templates, setTemplates] = useState<string[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<number>(0);
@@ -43,9 +43,7 @@ export default function LeadSelectionTable() {
 
       const res = await fetch(`${API}/leads?${params.toString()}`);
       let data = await res.json();
-      if (filters.emailOnly) {
-        data = data.filter((l: any) => l.email);
-      }
+      if (filters.emailOnly) data = data.filter((l: any) => l.email);
       setLeads(data);
     } catch {
       toast({ title: "Failed to load leads", variant: "destructive" });
@@ -64,18 +62,13 @@ export default function LeadSelectionTable() {
   const toggleOne = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const bulkDelete = async () => {
-    await fetch(`${API}/leads/bulk-delete`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: selectedIds }),
-    });
+    await fetch(`${API}/leads/bulk-delete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: selectedIds }) });
     toast({ title: `🗑️ Deleted ${selectedIds.length} leads` });
     setSelectedIds([]);
     fetchLeads();
     setDeleteOpen(false);
   };
 
-  // ---- Bulk Email ----
   const selectedLeads = leads.filter(l => selectedIds.includes(l._id));
 
   const openEmailModal = () => {
@@ -85,6 +78,7 @@ export default function LeadSelectionTable() {
     }
     setEmailSubject("");
     setEmailOffer("");
+    setSignature("");
     setTemplates([]);
     setSelectedTemplate(0);
     setEmailModalOpen(true);
@@ -100,14 +94,14 @@ export default function LeadSelectionTable() {
       const res = await fetch(`${API}/outreach/generate-template`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject: emailSubject, offer: emailOffer }),
+        body: JSON.stringify({ subject: emailSubject, offer: emailOffer, signature }),
       });
       const data = await res.json();
       if (data.templates && data.templates.length > 0) {
         setTemplates(data.templates);
         setSelectedTemplate(0);
       } else {
-        toast({ title: "AI generation failed. Try again.", variant: "destructive" });
+        toast({ title: "AI generation failed", variant: "destructive" });
       }
     } catch {
       toast({ title: "Error generating templates", variant: "destructive" });
@@ -116,10 +110,7 @@ export default function LeadSelectionTable() {
   };
 
   const sendBulkEmail = async () => {
-    if (templates.length === 0) {
-      toast({ title: "Generate a template first", variant: "destructive" });
-      return;
-    }
+    if (templates.length === 0) return;
     const body = templates[selectedTemplate];
     setSending(true);
     let success = 0;
@@ -128,12 +119,7 @@ export default function LeadSelectionTable() {
         await fetch(`${API}/outreach/bulk-send`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            to: lead.email,
-            subject: emailSubject,
-            body: body,
-            leadId: lead._id,
-          }),
+          body: JSON.stringify({ to: lead.email, subject: emailSubject, body, leadId: lead._id }),
         });
         success++;
       } catch {}
@@ -199,7 +185,6 @@ export default function LeadSelectionTable() {
         </div>
       )}
 
-      {/* Delete Confirmation */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="bg-[#111] border-white/10">
           <DialogHeader><DialogTitle>Delete {selectedIds.length} leads?</DialogTitle><DialogDescription>This cannot be undone.</DialogDescription></DialogHeader>
@@ -210,14 +195,14 @@ export default function LeadSelectionTable() {
         </DialogContent>
       </Dialog>
 
-      {/* Bulk Email Modal */}
       <Dialog open={emailModalOpen} onOpenChange={setEmailModalOpen}>
         <DialogContent className="bg-[#111] border-white/10 max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-[#6366F1]" /> Bulk Email to {selectedLeads.length} leads</DialogTitle>
-            <DialogDescription>Enter subject and key points. AI will generate professional templates.</DialogDescription>
+            <DialogDescription>
+              Templates use <code className="bg-white/5 px-1 rounded">{"{{firstName}}"}</code> and <code className="bg-white/5 px-1 rounded">{"{{company}}"}</code> placeholders.
+            </DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4">
             <div>
               <label className="text-sm text-gray-400 mb-1 block">Email Subject</label>
@@ -225,29 +210,23 @@ export default function LeadSelectionTable() {
             </div>
             <div>
               <label className="text-sm text-gray-400 mb-1 block">Your Offer / Key Points</label>
-              <Textarea placeholder="e.g. We offer free SEO audit for your website" value={emailOffer} onChange={e => setEmailOffer(e.target.value)} rows={3} className="bg-white/5 border-white/10" />
+              <Textarea placeholder="e.g. We offer free SEO audit" value={emailOffer} onChange={e => setEmailOffer(e.target.value)} rows={3} className="bg-white/5 border-white/10" />
             </div>
-
+            <div>
+              <label className="text-sm text-gray-400 mb-1 block">Your Name (Signature)</label>
+              <Input placeholder="e.g. Ali from HighTech" value={signature} onChange={e => setSignature(e.target.value)} className="bg-white/5 border-white/10" />
+            </div>
             <Button onClick={generateTemplates} disabled={generating || !emailSubject || !emailOffer} className="bg-[#6366F1] gap-2 w-full">
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {generating ? "Generating..." : "Generate Email Templates"}
             </Button>
-
             {templates.length > 0 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
                 <p className="text-sm text-gray-400">Select a template:</p>
                 {templates.map((tmpl, idx) => (
-                  <div
-                    key={idx}
-                    className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                      selectedTemplate === idx ? "border-[#6366F1] bg-[#6366F1]/10" : "border-white/10 hover:border-white/20"
-                    }`}
-                    onClick={() => setSelectedTemplate(idx)}
-                  >
+                  <div key={idx} className={`p-3 rounded-lg border cursor-pointer transition-all ${selectedTemplate === idx ? "border-[#6366F1] bg-[#6366F1]/10" : "border-white/10 hover:border-white/20"}`} onClick={() => setSelectedTemplate(idx)}>
                     <div className="flex items-center gap-2 mb-2">
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                        selectedTemplate === idx ? "border-[#6366F1]" : "border-gray-500"
-                      }`}>
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${selectedTemplate === idx ? "border-[#6366F1]" : "border-gray-500"}`}>
                         {selectedTemplate === idx && <div className="w-2 h-2 rounded-full bg-[#6366F1]" />}
                       </div>
                       <span className="text-sm font-medium">Option {idx + 1}</span>
@@ -255,7 +234,6 @@ export default function LeadSelectionTable() {
                     <pre className="text-xs text-gray-300 whitespace-pre-wrap font-sans">{tmpl}</pre>
                   </div>
                 ))}
-
                 <Button onClick={sendBulkEmail} disabled={sending} className="w-full bg-green-600 hover:bg-green-700 gap-2">
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   {sending ? "Sending..." : `Send to ${selectedLeads.length} leads`}
@@ -266,7 +244,6 @@ export default function LeadSelectionTable() {
         </DialogContent>
       </Dialog>
 
-      {/* Leads Table */}
       {loading ? (
         <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full bg-white/5" />)}</div>
       ) : leads.length === 0 ? (
