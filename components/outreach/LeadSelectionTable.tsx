@@ -34,7 +34,7 @@ export default function LeadSelectionTable() {
   const [selectedTemplate, setSelectedTemplate] = useState<number>(0);
   const [sending, setSending] = useState(false);
 
-  // Attachment state (uploaded file info – can be used later)
+  // Attachment state
   const [uploadedFile, setUploadedFile] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -98,6 +98,7 @@ export default function LeadSelectionTable() {
     setEmailModalOpen(true);
   };
 
+  // Handle file upload
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -128,6 +129,7 @@ export default function LeadSelectionTable() {
 
   const removeAttachment = () => setUploadedFile(null);
 
+  // Generate AI templates
   const generateTemplates = async () => {
     if (!emailNiche.trim() || !emailOffer.trim()) {
       toast({ title: "Niche and offer are required", variant: "destructive" });
@@ -160,8 +162,8 @@ export default function LeadSelectionTable() {
     setEditableTemplates(updated);
   };
 
-  // Sends emails via backend Gmail SMTP (Nodemailer)
-  const sendBulkEmailsViaGmail = async () => {
+  // Send bulk emails
+  const sendBulkEmails = async () => {
     if (editableTemplates.length === 0) return;
     const body = editableTemplates[selectedTemplate];
     setSending(true);
@@ -170,6 +172,9 @@ export default function LeadSelectionTable() {
 
     for (const lead of selectedLeads) {
       try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
+
         const res = await fetch(`${API}/outreach/bulk-send`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -178,67 +183,58 @@ export default function LeadSelectionTable() {
             subject: emailNiche,
             body,
             leadId: lead._id,
-            // attachment can be passed if the backend supports it, otherwise omitted
-            attachment: uploadedFile
-              ? {
-                  filename: uploadedFile.filename,
-                  path: uploadedFile.path,
-                  content_type: uploadedFile.mimetype,
-                }
-              : undefined,
+            attachment: uploadedFile ? {
+              filename: uploadedFile.filename,
+              path: uploadedFile.path,
+              content_type: uploadedFile.mimetype,
+            } : undefined,
           }),
+          signal: controller.signal,
         });
 
-        if (res.ok) success++;
-        else {
+        clearTimeout(timeout);
+
+        if (res.ok) {
+          success++;
+        } else {
           const err = await res.json();
-          console.error("Send failed for", lead.email, err);
+          console.error("Send failed:", err);
           failed++;
         }
       } catch (e) {
-        console.error("Network error sending to", lead.email, e);
+        console.error("Network error:", e);
         failed++;
       }
-    }
-
-    if (failed > 0) {
-      toast({
-        title: `📧 Sent to ${success} leads (${failed} failed)`,
-        description: "Check Gmail credentials in Settings and try again.",
-        variant: "destructive",
-      });
-    } else {
-      toast({ title: `✅ Successfully sent to ${success} leads!` });
     }
 
     setSending(false);
     setEmailModalOpen(false);
     setSelectedIds([]);
+
+    if (failed > 0) {
+      toast({
+        title: `📧 ${success} sent, ${failed} failed`,
+        description: "Check Settings → Brevo key or Gmail credentials.",
+        variant: "destructive",
+      });
+    } else {
+      toast({ title: `✅ Sent to ${success} leads!` });
+    }
   };
 
   return (
     <div className="glass-card p-6 space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-xl font-semibold">Select Leads ({leads.length})</h2>
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && fetchLeads()}
-              className="pl-9 w-48 bg-white/5 border-white/10"
-            />
+            <Input placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === "Enter" && fetchLeads()} className="pl-9 w-48 bg-white/5 border-white/10" />
           </div>
-          <Button onClick={fetchLeads} variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+          <Button onClick={fetchLeads} variant="outline" size="sm"><RefreshCw className="h-4 w-4" /></Button>
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
         <Select value={filters.niche} onValueChange={v => setFilters(prev => ({ ...prev, niche: v }))}>
           <SelectTrigger className="w-[140px] bg-white/5 border-white/10 text-sm"><SelectValue placeholder="Niche" /></SelectTrigger>
@@ -265,25 +261,17 @@ export default function LeadSelectionTable() {
           <Checkbox checked={filters.emailOnly} onCheckedChange={v => setFilters(prev => ({ ...prev, emailOnly: !!v }))} />
           Email only
         </label>
-        <Button onClick={fetchLeads} variant="outline" className="border-[#6366F1] text-[#6366F1]">
-          <Filter className="h-4 w-4 mr-1" /> Apply
-        </Button>
+        <Button onClick={fetchLeads} variant="outline" className="border-[#6366F1] text-[#6366F1]"><Filter className="h-4 w-4 mr-1" /> Apply</Button>
       </div>
 
-      {/* Bulk Actions */}
       {selectedIds.length > 0 && (
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-400">{selectedIds.length} selected</span>
-          <Button variant="outline" size="sm" onClick={openEmailModal}>
-            <Send className="h-4 w-4 mr-1" /> Send Bulk Email
-          </Button>
-          <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
-            <Trash2 className="h-4 w-4 mr-1" /> Delete
-          </Button>
+          <Button variant="outline" size="sm" onClick={openEmailModal}><Send className="h-4 w-4 mr-1" /> Send Bulk Email</Button>
+          <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}><Trash2 className="h-4 w-4 mr-1" /> Delete</Button>
         </div>
       )}
 
-      {/* Delete Dialog */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="bg-[#111] border-white/10">
           <DialogHeader><DialogTitle>Delete {selectedIds.length} leads?</DialogTitle><DialogDescription>Cannot be undone.</DialogDescription></DialogHeader>
@@ -291,26 +279,25 @@ export default function LeadSelectionTable() {
         </DialogContent>
       </Dialog>
 
-      {/* Bulk Email Modal */}
       <Dialog open={emailModalOpen} onOpenChange={setEmailModalOpen}>
         <DialogContent className="bg-[#111] border-white/10 max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-[#6366F1]" /> Bulk Email to {selectedLeads.length} leads</DialogTitle>
-            <DialogDescription>Templates use <code className="bg-white/5 px-1 rounded">{"{{firstName}}"}</code> and <code className="bg-white/5 px-1 rounded">{"{{company}}"}</code> – they will be replaced automatically.</DialogDescription>
+            <DialogDescription>Templates use <code className="bg-white/5 px-1 rounded">{"{{firstName}}"}</code> and <code className="bg-white/5 px-1 rounded">{"{{company}}"}</code> — replaced automatically.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div><label className="text-sm text-gray-400 mb-1 block">Niche / Industry</label><Input placeholder="e.g. Products Research" value={emailNiche} onChange={e => setEmailNiche(e.target.value)} className="bg-white/5 border-white/10" /></div>
-            <div><label className="text-sm text-gray-400 mb-1 block">Your Offer</label><Textarea placeholder="e.g. Free complete report" value={emailOffer} onChange={e => setEmailOffer(e.target.value)} rows={3} className="bg-white/5 border-white/10" /></div>
-            <div><label className="text-sm text-gray-400 mb-1 block">Signature</label><Input placeholder="e.g. Albert, High-tech" value={signature} onChange={e => setSignature(e.target.value)} className="bg-white/5 border-white/10" /></div>
+            <div><label className="text-sm text-gray-400 mb-1 block">Subject / Niche</label><Input placeholder="e.g. Products Research Report" value={emailNiche} onChange={e => setEmailNiche(e.target.value)} className="bg-white/5 border-white/10" /></div>
+            <div><label className="text-sm text-gray-400 mb-1 block">Your Offer / Key Points</label><Textarea placeholder="e.g. Free complete products research report" value={emailOffer} onChange={e => setEmailOffer(e.target.value)} rows={3} className="bg-white/5 border-white/10" /></div>
+            <div><label className="text-sm text-gray-400 mb-1 block">Your Name (Signature)</label><Input placeholder="e.g. Albert, High-tech" value={signature} onChange={e => setSignature(e.target.value)} className="bg-white/5 border-white/10" /></div>
 
-            {/* Attachment (optional) */}
+            {/* File Upload */}
             <div>
-              <label className="text-sm text-gray-400 mb-1 block">Attachment (optional, max 10MB)</label>
+              <label className="text-sm text-gray-400 mb-1 block">Attachment (max 10MB)</label>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="gap-1" disabled={uploading}>
                   {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />} Choose File
                 </Button>
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.md" />
                 {uploadedFile && (
                   <span className="text-xs text-green-400 flex items-center gap-1 bg-green-500/10 px-2 py-1 rounded-full">
                     <File className="h-3 w-3" /> {uploadedFile.filename}
@@ -327,7 +314,7 @@ export default function LeadSelectionTable() {
 
             {editableTemplates.length > 0 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-                <p className="text-sm text-gray-400">Select & edit:</p>
+                <p className="text-sm text-gray-400">Select & edit your template:</p>
                 {editableTemplates.map((tmpl, idx) => (
                   <div key={idx} className={`p-3 rounded-lg border cursor-pointer ${selectedTemplate === idx ? "border-[#6366F1] bg-[#6366F1]/10" : "border-white/10"}`} onClick={() => setSelectedTemplate(idx)}>
                     <div className="flex items-center gap-2 mb-2">
@@ -339,7 +326,7 @@ export default function LeadSelectionTable() {
                     <Textarea value={tmpl} onChange={e => updateTemplate(idx, e.target.value)} rows={6} className="bg-transparent border-white/10 text-sm" />
                   </div>
                 ))}
-                <Button onClick={sendBulkEmailsViaGmail} disabled={sending} className="w-full bg-green-600 hover:bg-green-700 gap-2">
+                <Button onClick={sendBulkEmails} disabled={sending} className="w-full bg-green-600 hover:bg-green-700 gap-2">
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   {sending ? "Sending..." : `Send to ${selectedLeads.length} leads`}
                 </Button>
@@ -349,18 +336,11 @@ export default function LeadSelectionTable() {
         </DialogContent>
       </Dialog>
 
-      {/* Loading State */}
       {loading ? (
         <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full bg-white/5" />)}</div>
       ) : leads.length === 0 ? (
-        /* Empty State */
-        <div className="text-center py-12 text-gray-400">
-          <Filter className="h-12 w-12 mx-auto mb-3 opacity-50" />
-          <p>No leads match your filters.</p>
-          <p className="text-xs mt-1">Try adjusting filters or run Lead Finder first.</p>
-        </div>
+        <div className="text-center py-12 text-gray-400"><Filter className="h-12 w-12 mx-auto mb-3 opacity-50" /><p>No leads match your filters.</p></div>
       ) : (
-        /* Leads Table */
         <Table>
           <TableHeader>
             <TableRow className="border-white/5">
