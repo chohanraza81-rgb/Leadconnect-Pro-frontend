@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ export default function LeadSelectionTable() {
   const [filterOptions, setFilterOptions] = useState({ niches: [], countries: [], statuses: ["new", "contacted", "replied", "converted"] });
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  // Bulk email modal (AI generation still works, but sending goes via Gmail)
+  // Bulk email modal (AI generation + open mailto)
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailNiche, setEmailNiche] = useState("");
   const [emailOffer, setEmailOffer] = useState("");
@@ -124,8 +124,8 @@ export default function LeadSelectionTable() {
     setEditableTemplates(updated);
   };
 
-  // NEW: Open Gmail compose for each selected lead (with delay)
-  const openGmailForLeads = () => {
+  // Opens native email client (Gmail app on mobile) with pre-filled message for each selected lead
+  const openNativeEmailForLeads = () => {
     if (editableTemplates.length === 0) return;
     const body = editableTemplates[selectedTemplate];
     setSending(true);
@@ -138,12 +138,13 @@ export default function LeadSelectionTable() {
           .replace(/{{firstName}}/g, firstName)
           .replace(/{{company}}/g, company);
 
-        const mailtoLink = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(lead.email)}&su=${encodeURIComponent(emailNiche)}&body=${encodeURIComponent(personalizedBody)}`;
-        window.open(mailtoLink, '_blank');
-      }, i * 1200); // 1.2 seconds between each to avoid pop-up blocking
+        // mailto: link opens default email app (Gmail on Android, Mail on iOS, etc.)
+        const mailtoLink = `mailto:${encodeURIComponent(lead.email)}?subject=${encodeURIComponent(emailNiche)}&body=${encodeURIComponent(personalizedBody)}`;
+        window.location.href = mailtoLink;
+      }, i * 1500); // 1.5 seconds delay to avoid multiple pop-ups on mobile
     });
 
-    toast({ title: `📬 Opening Gmail for ${selectedLeads.length} leads...` });
+    toast({ title: `📬 Opening Gmail app for ${selectedLeads.length} leads...` });
     setSending(false);
     setEmailModalOpen(false);
     setSelectedIds([]);
@@ -228,8 +229,8 @@ export default function LeadSelectionTable() {
       <Dialog open={emailModalOpen} onOpenChange={setEmailModalOpen}>
         <DialogContent className="bg-[#111] border-white/10 max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-[#6366F1]" /> Bulk Email to {selectedLeads.length} leads (via Gmail)</DialogTitle>
-            <DialogDescription>Templates use <code className="bg-white/5 px-1 rounded">{"{{firstName}}"}</code> and <code className="bg-white/5 px-1 rounded">{"{{company}}"}</code> placeholders – they will be replaced automatically.</DialogDescription>
+            <DialogTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-[#6366F1]" /> Bulk Email to {selectedLeads.length} leads</DialogTitle>
+            <DialogDescription>Templates use <code className="bg-white/5 px-1 rounded">{"{{firstName}}"}</code> and <code className="bg-white/5 px-1 rounded">{"{{company}}"}</code> – they will be replaced automatically.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div><label className="text-sm text-gray-400 mb-1 block">Niche / Industry</label><Input placeholder="e.g. Products Research" value={emailNiche} onChange={e => setEmailNiche(e.target.value)} className="bg-white/5 border-white/10" /></div>
@@ -255,7 +256,7 @@ export default function LeadSelectionTable() {
                     <Textarea value={tmpl} onChange={e => updateTemplate(idx, e.target.value)} rows={6} className="bg-transparent border-white/10 text-sm" />
                   </div>
                 ))}
-                <Button onClick={openGmailForLeads} disabled={sending} className="w-full bg-green-600 hover:bg-green-700 gap-2">
+                <Button onClick={openNativeEmailForLeads} disabled={sending} className="w-full bg-green-600 hover:bg-green-700 gap-2">
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                   {sending ? "Opening..." : `Open Gmail for ${selectedLeads.length} leads`}
                 </Button>
