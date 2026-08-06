@@ -70,7 +70,11 @@ export default function LeadSelectionTable() {
   const toggleOne = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const bulkDelete = async () => {
-    await fetch(`${API}/leads/bulk-delete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: selectedIds }) });
+    await fetch(`${API}/leads/bulk-delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: selectedIds }),
+    });
     toast({ title: `🗑️ Deleted ${selectedIds.length} leads` });
     setSelectedIds([]);
     fetchLeads();
@@ -160,7 +164,8 @@ export default function LeadSelectionTable() {
     if (editableTemplates.length === 0) return;
     const body = editableTemplates[selectedTemplate];
     setSending(true);
-    let success = 0, failed = 0;
+    let success = 0;
+    let failed = 0;
 
     for (const lead of selectedLeads) {
       try {
@@ -172,19 +177,39 @@ export default function LeadSelectionTable() {
             subject: emailNiche,
             body,
             leadId: lead._id,
-            attachment: uploadedFile ? {
-              filename: uploadedFile.filename,
-              path: uploadedFile.path,
-              content_type: uploadedFile.mimetype,
-            } : undefined,
+            attachment: uploadedFile
+              ? {
+                  filename: uploadedFile.filename,
+                  path: uploadedFile.path,
+                  content_type: uploadedFile.mimetype,
+                }
+              : undefined,
           }),
         });
-        if (res.ok) success++;
-        else failed++;
-      } catch { failed++; }
+
+        if (res.ok) {
+          success++;
+        } else {
+          const err = await res.json();
+          console.error("Send failed for", lead.email, err);
+          failed++;
+        }
+      } catch (e) {
+        console.error("Network error sending to", lead.email, e);
+        failed++;
+      }
     }
 
-    toast({ title: failed ? `📧 Sent to ${success} (${failed} failed)` : `✅ Sent to ${success} leads!` });
+    if (failed > 0) {
+      toast({
+        title: `📧 Sent to ${success} leads (${failed} failed)`,
+        description: "Check the console or Railway logs for details.",
+        variant: "destructive",
+      });
+    } else {
+      toast({ title: `✅ Successfully sent to ${success} leads!` });
+    }
+
     setSending(false);
     setEmailModalOpen(false);
     setSelectedIds([]);
@@ -192,17 +217,27 @@ export default function LeadSelectionTable() {
 
   return (
     <div className="glass-card p-6 space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-xl font-semibold">Select Leads ({leads.length})</h2>
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === "Enter" && fetchLeads()} className="pl-9 w-48 bg-white/5 border-white/10" />
+            <Input
+              placeholder="Search..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && fetchLeads()}
+              className="pl-9 w-48 bg-white/5 border-white/10"
+            />
           </div>
-          <Button onClick={fetchLeads} variant="outline" size="sm"><RefreshCw className="h-4 w-4" /></Button>
+          <Button onClick={fetchLeads} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
+      {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
         <Select value={filters.niche} onValueChange={v => setFilters(prev => ({ ...prev, niche: v }))}>
           <SelectTrigger className="w-[140px] bg-white/5 border-white/10 text-sm"><SelectValue placeholder="Niche" /></SelectTrigger>
@@ -229,17 +264,25 @@ export default function LeadSelectionTable() {
           <Checkbox checked={filters.emailOnly} onCheckedChange={v => setFilters(prev => ({ ...prev, emailOnly: !!v }))} />
           Email only
         </label>
-        <Button onClick={fetchLeads} variant="outline" className="border-[#6366F1] text-[#6366F1]"><Filter className="h-4 w-4 mr-1" /> Apply</Button>
+        <Button onClick={fetchLeads} variant="outline" className="border-[#6366F1] text-[#6366F1]">
+          <Filter className="h-4 w-4 mr-1" /> Apply
+        </Button>
       </div>
 
+      {/* Bulk Actions */}
       {selectedIds.length > 0 && (
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-400">{selectedIds.length} selected</span>
-          <Button variant="outline" size="sm" onClick={openEmailModal}><Send className="h-4 w-4 mr-1" /> Send Bulk Email</Button>
-          <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}><Trash2 className="h-4 w-4 mr-1" /> Delete</Button>
+          <Button variant="outline" size="sm" onClick={openEmailModal}>
+            <Send className="h-4 w-4 mr-1" /> Send Bulk Email
+          </Button>
+          <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+            <Trash2 className="h-4 w-4 mr-1" /> Delete
+          </Button>
         </div>
       )}
 
+      {/* Delete Dialog */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="bg-[#111] border-white/10">
           <DialogHeader><DialogTitle>Delete {selectedIds.length} leads?</DialogTitle><DialogDescription>Cannot be undone.</DialogDescription></DialogHeader>
@@ -247,6 +290,7 @@ export default function LeadSelectionTable() {
         </DialogContent>
       </Dialog>
 
+      {/* Bulk Email Modal */}
       <Dialog open={emailModalOpen} onOpenChange={setEmailModalOpen}>
         <DialogContent className="bg-[#111] border-white/10 max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -304,13 +348,29 @@ export default function LeadSelectionTable() {
         </DialogContent>
       </Dialog>
 
+      {/* Loading State */}
       {loading ? (
         <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full bg-white/5" />)}</div>
       ) : leads.length === 0 ? (
-        <div className="text-center py-12 text-gray-400"><Filter className="h-12 w-12 mx-auto mb-3 opacity-50" /><p>No leads match your filters.</p></div>
+        /* Empty State */
+        <div className="text-center py-12 text-gray-400">
+          <Filter className="h-12 w-12 mx-auto mb-3 opacity-50" />
+          <p>No leads match your filters.</p>
+          <p className="text-xs mt-1">Try adjusting filters or run Lead Finder first.</p>
+        </div>
       ) : (
+        /* Leads Table */
         <Table>
-          <TableHeader><TableRow className="border-white/5"><TableHead className="w-10"><Checkbox checked={selectedIds.length === leads.length && leads.length > 0} onCheckedChange={toggleAll} /></TableHead><TableHead>Name</TableHead><TableHead>Company</TableHead><TableHead>Email</TableHead><TableHead>Phone</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+          <TableHeader>
+            <TableRow className="border-white/5">
+              <TableHead className="w-10"><Checkbox checked={selectedIds.length === leads.length && leads.length > 0} onCheckedChange={toggleAll} /></TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Company</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Phone</TableHead>
+              <TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
           <TableBody>
             {leads.map(lead => (
               <TableRow key={lead._id} className="border-white/5 hover:bg-white/[0.03]">
@@ -319,7 +379,9 @@ export default function LeadSelectionTable() {
                 <TableCell>{lead.company || "—"}</TableCell>
                 <TableCell className="text-blue-400 text-sm">{lead.email || "—"}</TableCell>
                 <TableCell className="text-green-400 text-sm">{lead.phone || "—"}</TableCell>
-                <TableCell><span className={`px-2 py-1 rounded-full text-xs font-medium ${lead.status === "converted" ? "bg-green-500/20 text-green-300" : lead.status === "replied" ? "bg-blue-500/20 text-blue-300" : lead.status === "contacted" ? "bg-yellow-500/20 text-yellow-300" : "bg-gray-500/20 text-gray-400"}`}>{lead.status}</span></TableCell>
+                <TableCell>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${lead.status === "converted" ? "bg-green-500/20 text-green-300" : lead.status === "replied" ? "bg-blue-500/20 text-blue-300" : lead.status === "contacted" ? "bg-yellow-500/20 text-yellow-300" : "bg-gray-500/20 text-gray-400"}`}>{lead.status}</span>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
