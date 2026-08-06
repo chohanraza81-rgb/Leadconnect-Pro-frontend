@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Search, Filter, RefreshCw, Send, Sparkles, Loader2, Paperclip, File } from "lucide-react";
+import { Trash2, Search, Filter, RefreshCw, Send, Sparkles, Loader2, Paperclip, File, X } from "lucide-react";
 import { motion } from "framer-motion";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -34,14 +34,16 @@ export default function LeadSelectionTable() {
   const [selectedTemplate, setSelectedTemplate] = useState<number>(0);
   const [sending, setSending] = useState(false);
 
-  // Attachment
+  // Attachment state
   const [attachment, setAttachment] = useState<{
     filename: string;
-    content: string;   // base64
+    content: string;
     content_type: string;
+    size: number;
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Fetch leads with filters
   const fetchLeads = useCallback(async () => {
     setLoading(true);
     try {
@@ -63,16 +65,25 @@ export default function LeadSelectionTable() {
 
   useEffect(() => {
     fetchLeads();
-    fetch(`${API}/leads/filters`).then(r => r.json()).then(d => {
-      setFilterOptions(prev => ({ ...prev, niches: d.niches || [], countries: d.countries || [] }));
-    }).catch(() => {});
+    fetch(`${API}/leads/filters`)
+      .then(r => r.json())
+      .then(d => {
+        setFilterOptions(prev => ({ ...prev, niches: d.niches || [], countries: d.countries || [] }));
+      })
+      .catch(() => {});
   }, [fetchLeads]);
 
+  // Selection handlers
   const toggleAll = (checked: boolean) => setSelectedIds(checked ? leads.map(l => l._id) : []);
   const toggleOne = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
+  // Bulk delete
   const bulkDelete = async () => {
-    await fetch(`${API}/leads/bulk-delete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: selectedIds }) });
+    await fetch(`${API}/leads/bulk-delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: selectedIds }),
+    });
     toast({ title: `🗑️ Deleted ${selectedIds.length} leads` });
     setSelectedIds([]);
     fetchLeads();
@@ -81,6 +92,7 @@ export default function LeadSelectionTable() {
 
   const selectedLeads = leads.filter(l => selectedIds.includes(l._id));
 
+  // Open email modal
   const openEmailModal = () => {
     if (selectedLeads.length === 0) {
       toast({ title: "Select at least one lead with email", variant: "destructive" });
@@ -96,23 +108,39 @@ export default function LeadSelectionTable() {
     setEmailModalOpen(true);
   };
 
+  // Handle file upload
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Reject files larger than 5MB
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "❌ File too large. Maximum 5MB allowed.", variant: "destructive" });
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = () => {
-      const base64 = (reader.result as string).split(',')[1]; // remove data:...;base64,
+      const base64 = (reader.result as string).split(',')[1];
       setAttachment({
         filename: file.name,
         content: base64,
         content_type: file.type,
+        size: file.size,
       });
-      toast({ title: `📎 ${file.name} attached` });
+      toast({ title: `📎 ${file.name} attached (${(file.size / 1024).toFixed(1)} KB)` });
     };
     reader.readAsDataURL(file);
   };
 
+  // Remove attachment
+  const removeAttachment = () => {
+    setAttachment(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    toast({ title: "Attachment removed" });
+  };
+
+  // Generate AI templates
   const generateTemplates = async () => {
     if (!emailNiche.trim() || !emailOffer.trim()) {
       toast({ title: "Niche and offer are required", variant: "destructive" });
@@ -128,8 +156,9 @@ export default function LeadSelectionTable() {
       const data = await res.json();
       if (data.templates && data.templates.length > 0) {
         setTemplates(data.templates);
-        setEditableTemplates(data.templates.map(t => t));
+        setEditableTemplates(data.templates.map((t: string) => t));
         setSelectedTemplate(0);
+        toast({ title: "✨ 3 templates generated!" });
       } else {
         toast({ title: "AI generation failed", variant: "destructive" });
       }
@@ -139,20 +168,24 @@ export default function LeadSelectionTable() {
     setGenerating(false);
   };
 
+  // Update editable template
   const updateTemplate = (index: number, value: string) => {
     const updated = [...editableTemplates];
     updated[index] = value;
     setEditableTemplates(updated);
   };
 
+  // Send bulk email
   const sendBulkEmail = async () => {
     if (editableTemplates.length === 0) return;
     const body = editableTemplates[selectedTemplate];
     setSending(true);
     let success = 0;
+    let failed = 0;
+
     for (const lead of selectedLeads) {
       try {
-        await fetch(`${API}/outreach/bulk-send`, {
+        const res = await fetch(`${API}/outreach/bulk-send`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -163,58 +196,105 @@ export default function LeadSelectionTable() {
             attachment: attachment || undefined,
           }),
         });
-        success++;
-      } catch {}
+        if (res.ok) {
+          success++;
+        } else {
+          failed++;
+        }
+      } catch {
+        failed++;
+      }
     }
-    toast({ title: `📧 Sent to ${success} / ${selectedLeads.length} leads` });
+
+    if (failed > 0) {
+      toast({
+        title: `📧 Sent to ${success} leads (${failed} failed)`,
+        description: failed > 0 ? "Check your Resend API key in Settings." : undefined,
+        variant: failed > 0 ? "destructive" : "default",
+      });
+    } else {
+      toast({ title: `📧 Successfully sent to ${success} leads!` });
+    }
+
     setSending(false);
     setEmailModalOpen(false);
+    setSelectedIds([]);
   };
 
   return (
     <div className="glass-card p-6 space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-xl font-semibold">Select Leads ({leads.length})</h2>
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === "Enter" && fetchLeads()} className="pl-9 w-48 bg-white/5 border-white/10" />
+            <Input
+              placeholder="Search..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && fetchLeads()}
+              className="pl-9 w-48 bg-white/5 border-white/10"
+            />
           </div>
-          <Button onClick={fetchLeads} variant="outline" size="sm"><RefreshCw className="h-4 w-4" /></Button>
+          <Button onClick={fetchLeads} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
+      {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
         <Select value={filters.niche} onValueChange={v => setFilters(prev => ({ ...prev, niche: v }))}>
-          <SelectTrigger className="w-[140px] bg-white/5 border-white/10 text-sm"><SelectValue placeholder="Niche" /></SelectTrigger>
+          <SelectTrigger className="w-[140px] bg-white/5 border-white/10 text-sm">
+            <SelectValue placeholder="Niche" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Niches</SelectItem>
-            {filterOptions.niches.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+            {filterOptions.niches.map(n => (
+              <SelectItem key={n} value={n}>{n}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
+
         <Select value={filters.country} onValueChange={v => setFilters(prev => ({ ...prev, country: v }))}>
-          <SelectTrigger className="w-[140px] bg-white/5 border-white/10 text-sm"><SelectValue placeholder="Country" /></SelectTrigger>
+          <SelectTrigger className="w-[140px] bg-white/5 border-white/10 text-sm">
+            <SelectValue placeholder="Country" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Countries</SelectItem>
-            {filterOptions.countries.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            {filterOptions.countries.map(c => (
+              <SelectItem key={c} value={c}>{c}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
+
         <Select value={filters.status} onValueChange={v => setFilters(prev => ({ ...prev, status: v }))}>
-          <SelectTrigger className="w-[140px] bg-white/5 border-white/10 text-sm"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectTrigger className="w-[140px] bg-white/5 border-white/10 text-sm">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
-            {filterOptions.statuses.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
+            {filterOptions.statuses.map(s => (
+              <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
+
         <label className="flex items-center gap-2 text-sm text-gray-400">
-          <Checkbox checked={filters.emailOnly} onCheckedChange={v => setFilters(prev => ({ ...prev, emailOnly: !!v }))} />
+          <Checkbox
+            checked={filters.emailOnly}
+            onCheckedChange={v => setFilters(prev => ({ ...prev, emailOnly: !!v }))}
+          />
           Email only
         </label>
+
         <Button onClick={fetchLeads} variant="outline" className="border-[#6366F1] text-[#6366F1]">
           <Filter className="h-4 w-4 mr-1" /> Apply
         </Button>
       </div>
 
+      {/* Bulk Actions */}
       {selectedIds.length > 0 && (
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-400">{selectedIds.length} selected</span>
@@ -227,9 +307,13 @@ export default function LeadSelectionTable() {
         </div>
       )}
 
+      {/* Delete Confirmation Dialog */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="bg-[#111] border-white/10">
-          <DialogHeader><DialogTitle>Delete {selectedIds.length} leads?</DialogTitle><DialogDescription>Cannot be undone.</DialogDescription></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Delete {selectedIds.length} leads?</DialogTitle>
+            <DialogDescription>This action cannot be undone.</DialogDescription>
+          </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
             <Button variant="destructive" onClick={bulkDelete}>Delete</Button>
@@ -241,30 +325,61 @@ export default function LeadSelectionTable() {
       <Dialog open={emailModalOpen} onOpenChange={setEmailModalOpen}>
         <DialogContent className="bg-[#111] border-white/10 max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-[#6366F1]" /> Bulk Email to {selectedLeads.length} leads</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-5 w-5 text-[#6366F1]" />
+              Bulk Email to {selectedLeads.length} leads
+            </DialogTitle>
             <DialogDescription>
-              AI will generate a professional template with <code className="bg-white/5 px-1 rounded">{"{{firstName}}"}</code> and <code className="bg-white/5 px-1 rounded">{"{{company}}"}</code> placeholders. You can edit before sending.
+              Templates use <code className="bg-white/5 px-1 rounded">{"{{firstName}}"}</code> and{" "}
+              <code className="bg-white/5 px-1 rounded">{"{{company}}"}</code> placeholders – they are replaced automatically.
             </DialogDescription>
           </DialogHeader>
+
           <div className="space-y-4">
+            {/* Niche */}
             <div>
-              <label className="text-sm text-gray-400 mb-1 block">Niche / Industry (e.g. Products Research)</label>
-              <Input placeholder="Products Research" value={emailNiche} onChange={e => setEmailNiche(e.target.value)} className="bg-white/5 border-white/10" />
+              <label className="text-sm text-gray-400 mb-1 block">Niche / Industry</label>
+              <Input
+                placeholder="e.g. Products Research"
+                value={emailNiche}
+                onChange={e => setEmailNiche(e.target.value)}
+                className="bg-white/5 border-white/10"
+              />
             </div>
+
+            {/* Offer */}
             <div>
               <label className="text-sm text-gray-400 mb-1 block">Your Offer / Value Proposition</label>
-              <Textarea placeholder="e.g. Free complete products research report to test quality" value={emailOffer} onChange={e => setEmailOffer(e.target.value)} rows={3} className="bg-white/5 border-white/10" />
+              <Textarea
+                placeholder="e.g. Free complete products research report to test quality"
+                value={emailOffer}
+                onChange={e => setEmailOffer(e.target.value)}
+                rows={3}
+                className="bg-white/5 border-white/10"
+              />
             </div>
+
+            {/* Signature */}
             <div>
               <label className="text-sm text-gray-400 mb-1 block">Your Name (Signature)</label>
-              <Input placeholder="e.g. Albert, from High-tech" value={signature} onChange={e => setSignature(e.target.value)} className="bg-white/5 border-white/10" />
+              <Input
+                placeholder="e.g. Albert, from High-tech"
+                value={signature}
+                onChange={e => setSignature(e.target.value)}
+                className="bg-white/5 border-white/10"
+              />
             </div>
 
             {/* Attachment */}
             <div>
-              <label className="text-sm text-gray-400 mb-1 block">Attachment (optional)</label>
+              <label className="text-sm text-gray-400 mb-1 block">Attachment (max 5MB)</label>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="gap-1"
+                >
                   <Paperclip className="h-4 w-4" /> Choose File
                 </Button>
                 <input
@@ -272,29 +387,53 @@ export default function LeadSelectionTable() {
                   ref={fileInputRef}
                   onChange={handleFileChange}
                   className="hidden"
-                  accept=".doc,.docx,.xls,.xlsx,.csv,.md,.pdf,.txt"
+                  accept=".doc,.docx,.xls,.xlsx,.csv,.md,.pdf,.txt,.ppt,.pptx"
                 />
                 {attachment && (
-                  <span className="text-xs text-green-400 flex items-center gap-1">
-                    <File className="h-3 w-3" /> {attachment.filename}
+                  <span className="text-xs text-green-400 flex items-center gap-1 bg-green-500/10 px-2 py-1 rounded-full">
+                    <File className="h-3 w-3" />
+                    {attachment.filename} ({(attachment.size / 1024).toFixed(1)} KB)
+                    <button onClick={removeAttachment} className="ml-1 hover:text-red-400">
+                      <X className="h-3 w-3" />
+                    </button>
                   </span>
                 )}
               </div>
             </div>
 
-            <Button onClick={generateTemplates} disabled={generating || !emailNiche || !emailOffer} className="bg-[#6366F1] gap-2 w-full">
+            {/* Generate Button */}
+            <Button
+              onClick={generateTemplates}
+              disabled={generating || !emailNiche || !emailOffer}
+              className="bg-[#6366F1] gap-2 w-full"
+            >
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {generating ? "Generating..." : "Generate Email Templates"}
             </Button>
 
+            {/* Templates Selection */}
             {editableTemplates.length > 0 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
                 <p className="text-sm text-gray-400">Select and edit a template:</p>
                 {editableTemplates.map((tmpl, idx) => (
-                  <div key={idx} className={`p-3 rounded-lg border cursor-pointer transition-all ${selectedTemplate === idx ? "border-[#6366F1] bg-[#6366F1]/10" : "border-white/10 hover:border-white/20"}`} onClick={() => setSelectedTemplate(idx)}>
+                  <div
+                    key={idx}
+                    className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                      selectedTemplate === idx
+                        ? "border-[#6366F1] bg-[#6366F1]/10"
+                        : "border-white/10 hover:border-white/20"
+                    }`}
+                    onClick={() => setSelectedTemplate(idx)}
+                  >
                     <div className="flex items-center gap-2 mb-2">
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${selectedTemplate === idx ? "border-[#6366F1]" : "border-gray-500"}`}>
-                        {selectedTemplate === idx && <div className="w-2 h-2 rounded-full bg-[#6366F1]" />}
+                      <div
+                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                          selectedTemplate === idx ? "border-[#6366F1]" : "border-gray-500"
+                        }`}
+                      >
+                        {selectedTemplate === idx && (
+                          <div className="w-2 h-2 rounded-full bg-[#6366F1]" />
+                        )}
                       </div>
                       <span className="text-sm font-medium">Option {idx + 1}</span>
                     </div>
@@ -307,7 +446,12 @@ export default function LeadSelectionTable() {
                   </div>
                 ))}
 
-                <Button onClick={sendBulkEmail} disabled={sending} className="w-full bg-green-600 hover:bg-green-700 gap-2">
+                {/* Send Button */}
+                <Button
+                  onClick={sendBulkEmail}
+                  disabled={sending}
+                  className="w-full bg-green-600 hover:bg-green-700 gap-2"
+                >
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   {sending ? "Sending..." : `Send to ${selectedLeads.length} leads`}
                 </Button>
@@ -317,15 +461,31 @@ export default function LeadSelectionTable() {
         </DialogContent>
       </Dialog>
 
+      {/* Loading State */}
       {loading ? (
-        <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full bg-white/5" />)}</div>
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full bg-white/5" />
+          ))}
+        </div>
       ) : leads.length === 0 ? (
-        <div className="text-center py-12 text-gray-400"><Filter className="h-12 w-12 mx-auto mb-3 opacity-50" /><p>No leads match your filters.</p></div>
+        /* Empty State */
+        <div className="text-center py-12 text-gray-400">
+          <Filter className="h-12 w-12 mx-auto mb-3 opacity-50" />
+          <p>No leads match your filters.</p>
+          <p className="text-xs mt-1">Try adjusting filters or run Lead Finder first.</p>
+        </div>
       ) : (
+        /* Leads Table */
         <Table>
           <TableHeader>
             <TableRow className="border-white/5">
-              <TableHead className="w-10"><Checkbox checked={selectedIds.length === leads.length && leads.length > 0} onCheckedChange={toggleAll} /></TableHead>
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={selectedIds.length === leads.length && leads.length > 0}
+                  onCheckedChange={toggleAll}
+                />
+              </TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Company</TableHead>
               <TableHead>Email</TableHead>
@@ -336,12 +496,31 @@ export default function LeadSelectionTable() {
           <TableBody>
             {leads.map(lead => (
               <TableRow key={lead._id} className="border-white/5 hover:bg-white/[0.03]">
-                <TableCell><Checkbox checked={selectedIds.includes(lead._id)} onCheckedChange={() => toggleOne(lead._id)} /></TableCell>
-                <TableCell className="font-medium">{lead.name}</TableCell>
-                <TableCell>{lead.company}</TableCell>
+                <TableCell>
+                  <Checkbox
+                    checked={selectedIds.includes(lead._id)}
+                    onCheckedChange={() => toggleOne(lead._id)}
+                  />
+                </TableCell>
+                <TableCell className="font-medium">{lead.name || "—"}</TableCell>
+                <TableCell>{lead.company || "—"}</TableCell>
                 <TableCell className="text-blue-400 text-sm">{lead.email || "—"}</TableCell>
                 <TableCell className="text-green-400 text-sm">{lead.phone || "—"}</TableCell>
-                <TableCell><span className={`px-2 py-1 rounded-full text-xs font-medium ${lead.status === "converted" ? "bg-green-500/20 text-green-300" : "bg-gray-500/20 text-gray-400"}`}>{lead.status}</span></TableCell>
+                <TableCell>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      lead.status === "converted"
+                        ? "bg-green-500/20 text-green-300"
+                        : lead.status === "replied"
+                        ? "bg-blue-500/20 text-blue-300"
+                        : lead.status === "contacted"
+                        ? "bg-yellow-500/20 text-yellow-300"
+                        : "bg-gray-500/20 text-gray-400"
+                    }`}
+                  >
+                    {lead.status}
+                  </span>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
