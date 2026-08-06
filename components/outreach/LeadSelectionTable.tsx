@@ -98,7 +98,6 @@ export default function LeadSelectionTable() {
     setEmailModalOpen(true);
   };
 
-  // Handle file upload
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -129,7 +128,6 @@ export default function LeadSelectionTable() {
 
   const removeAttachment = () => setUploadedFile(null);
 
-  // Generate AI templates
   const generateTemplates = async () => {
     if (!emailNiche.trim() || !emailOffer.trim()) {
       toast({ title: "Niche and offer are required", variant: "destructive" });
@@ -162,7 +160,6 @@ export default function LeadSelectionTable() {
     setEditableTemplates(updated);
   };
 
-  // Send bulk emails
   const sendBulkEmails = async () => {
     if (editableTemplates.length === 0) return;
     const body = editableTemplates[selectedTemplate];
@@ -172,9 +169,6 @@ export default function LeadSelectionTable() {
 
     for (const lead of selectedLeads) {
       try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 20000);
-
         const res = await fetch(`${API}/outreach/bulk-send`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -183,26 +177,21 @@ export default function LeadSelectionTable() {
             subject: emailNiche,
             body,
             leadId: lead._id,
-            attachment: uploadedFile ? {
-              filename: uploadedFile.filename,
-              path: uploadedFile.path,
-              content_type: uploadedFile.mimetype,
-            } : undefined,
           }),
-          signal: controller.signal,
         });
 
-        clearTimeout(timeout);
-
         if (res.ok) {
-          success++;
+          const data = await res.json();
+          if (data.success) {
+            success++;
+          } else {
+            failed++;
+          }
         } else {
-          const err = await res.json();
-          console.error("Send failed:", err);
           failed++;
         }
       } catch (e) {
-        console.error("Network error:", e);
+        console.error("Send error:", e);
         failed++;
       }
     }
@@ -214,11 +203,11 @@ export default function LeadSelectionTable() {
     if (failed > 0) {
       toast({
         title: `📧 ${success} sent, ${failed} failed`,
-        description: "Check Settings → Brevo key or Gmail credentials.",
+        description: "Check Brevo API key in Settings.",
         variant: "destructive",
       });
     } else {
-      toast({ title: `✅ Sent to ${success} leads!` });
+      toast({ title: `✅ Successfully sent to ${success} leads!` });
     }
   };
 
