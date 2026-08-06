@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Search, Filter, RefreshCw, Send, Sparkles, Loader2, Mail } from "lucide-react";
+import { Trash2, Search, Filter, RefreshCw, Send, Sparkles, Loader2, Paperclip, File, X } from "lucide-react";
 import { motion } from "framer-motion";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -23,7 +23,7 @@ export default function LeadSelectionTable() {
   const [filterOptions, setFilterOptions] = useState({ niches: [], countries: [], statuses: ["new", "contacted", "replied", "converted"] });
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  // Bulk email modal (AI generation + open mailto)
+  // Bulk email modal
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailNiche, setEmailNiche] = useState("");
   const [emailOffer, setEmailOffer] = useState("");
@@ -33,6 +33,11 @@ export default function LeadSelectionTable() {
   const [editableTemplates, setEditableTemplates] = useState<string[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<number>(0);
   const [sending, setSending] = useState(false);
+
+  // Attachment state (uploaded file info – can be used later)
+  const [uploadedFile, setUploadedFile] = useState<any>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchLeads = useCallback(async () => {
     setLoading(true);
@@ -89,8 +94,39 @@ export default function LeadSelectionTable() {
     setTemplates([]);
     setEditableTemplates([]);
     setSelectedTemplate(0);
+    setUploadedFile(null);
     setEmailModalOpen(true);
   };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large. Max 10MB allowed.", variant: "destructive" });
+      return;
+    }
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch(`${API}/upload`, { method: "POST", body: formData });
+      const data = await res.json();
+      if (res.ok) {
+        setUploadedFile(data);
+        toast({ title: `📎 ${data.filename} uploaded!` });
+      } else {
+        throw new Error(data.error || "Upload failed");
+      }
+    } catch {
+      toast({ title: "File upload failed", variant: "destructive" });
+    }
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeAttachment = () => setUploadedFile(null);
 
   const generateTemplates = async () => {
     if (!emailNiche.trim() || !emailOffer.trim()) {
@@ -124,27 +160,57 @@ export default function LeadSelectionTable() {
     setEditableTemplates(updated);
   };
 
-  // Opens native email client (Gmail app on mobile) with pre-filled message for each selected lead
-  const openNativeEmailForLeads = () => {
+  // Sends emails via backend Gmail SMTP (Nodemailer)
+  const sendBulkEmailsViaGmail = async () => {
     if (editableTemplates.length === 0) return;
     const body = editableTemplates[selectedTemplate];
     setSending(true);
+    let success = 0;
+    let failed = 0;
 
-    selectedLeads.forEach((lead, i) => {
-      setTimeout(() => {
-        const firstName = lead.name ? lead.name.split(' ')[0] : 'there';
-        const company = lead.company || 'your company';
-        let personalizedBody = body
-          .replace(/{{firstName}}/g, firstName)
-          .replace(/{{company}}/g, company);
+    for (const lead of selectedLeads) {
+      try {
+        const res = await fetch(`${API}/outreach/bulk-send`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: lead.email,
+            subject: emailNiche,
+            body,
+            leadId: lead._id,
+            // attachment can be passed if the backend supports it, otherwise omitted
+            attachment: uploadedFile
+              ? {
+                  filename: uploadedFile.filename,
+                  path: uploadedFile.path,
+                  content_type: uploadedFile.mimetype,
+                }
+              : undefined,
+          }),
+        });
 
-        // mailto: link opens default email app (Gmail on Android, Mail on iOS, etc.)
-        const mailtoLink = `mailto:${encodeURIComponent(lead.email)}?subject=${encodeURIComponent(emailNiche)}&body=${encodeURIComponent(personalizedBody)}`;
-        window.location.href = mailtoLink;
-      }, i * 1500); // 1.5 seconds delay to avoid multiple pop-ups on mobile
-    });
+        if (res.ok) success++;
+        else {
+          const err = await res.json();
+          console.error("Send failed for", lead.email, err);
+          failed++;
+        }
+      } catch (e) {
+        console.error("Network error sending to", lead.email, e);
+        failed++;
+      }
+    }
 
-    toast({ title: `📬 Opening Gmail app for ${selectedLeads.length} leads...` });
+    if (failed > 0) {
+      toast({
+        title: `📧 Sent to ${success} leads (${failed} failed)`,
+        description: "Check Gmail credentials in Settings and try again.",
+        variant: "destructive",
+      });
+    } else {
+      toast({ title: `✅ Successfully sent to ${success} leads!` });
+    }
+
     setSending(false);
     setEmailModalOpen(false);
     setSelectedIds([]);
@@ -237,6 +303,23 @@ export default function LeadSelectionTable() {
             <div><label className="text-sm text-gray-400 mb-1 block">Your Offer</label><Textarea placeholder="e.g. Free complete report" value={emailOffer} onChange={e => setEmailOffer(e.target.value)} rows={3} className="bg-white/5 border-white/10" /></div>
             <div><label className="text-sm text-gray-400 mb-1 block">Signature</label><Input placeholder="e.g. Albert, High-tech" value={signature} onChange={e => setSignature(e.target.value)} className="bg-white/5 border-white/10" /></div>
 
+            {/* Attachment (optional) */}
+            <div>
+              <label className="text-sm text-gray-400 mb-1 block">Attachment (optional, max 10MB)</label>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="gap-1" disabled={uploading}>
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />} Choose File
+                </Button>
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+                {uploadedFile && (
+                  <span className="text-xs text-green-400 flex items-center gap-1 bg-green-500/10 px-2 py-1 rounded-full">
+                    <File className="h-3 w-3" /> {uploadedFile.filename}
+                    <button onClick={removeAttachment}><X className="h-3 w-3 hover:text-red-400" /></button>
+                  </span>
+                )}
+              </div>
+            </div>
+
             <Button onClick={generateTemplates} disabled={generating || !emailNiche || !emailOffer} className="bg-[#6366F1] gap-2 w-full">
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {generating ? "Generating..." : "Generate Templates"}
@@ -256,9 +339,9 @@ export default function LeadSelectionTable() {
                     <Textarea value={tmpl} onChange={e => updateTemplate(idx, e.target.value)} rows={6} className="bg-transparent border-white/10 text-sm" />
                   </div>
                 ))}
-                <Button onClick={openNativeEmailForLeads} disabled={sending} className="w-full bg-green-600 hover:bg-green-700 gap-2">
-                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                  {sending ? "Opening..." : `Open Gmail for ${selectedLeads.length} leads`}
+                <Button onClick={sendBulkEmailsViaGmail} disabled={sending} className="w-full bg-green-600 hover:bg-green-700 gap-2">
+                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {sending ? "Sending..." : `Send to ${selectedLeads.length} leads`}
                 </Button>
               </motion.div>
             )}
