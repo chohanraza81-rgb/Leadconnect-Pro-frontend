@@ -7,12 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Search, Filter, RefreshCw, Send, Sparkles, Loader2, Paperclip, File, X } from "lucide-react";
+import { Trash2, Search, Filter, RefreshCw, Send, Paperclip, File, X, Mail, Users, Info } from "lucide-react";
 import { motion } from "framer-motion";
 
-const API = process.env.NEXT_PUBLIC_API_URL;
+const API = "https://leadconnect-pro-backend-production.up.railway.app/api"; // Hardcoded
 
 export default function LeadSelectionTable() {
   const [leads, setLeads] = useState<any[]>([]);
@@ -20,23 +20,18 @@ export default function LeadSelectionTable() {
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState({ niche: "all", country: "all", status: "all", emailOnly: true });
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [filterOptions, setFilterOptions] = useState({ niches: [], countries: [], statuses: ["new", "contacted", "replied", "converted"] });
+  const [filterOptions, setFilterOptions] = useState({ niches: [], countries: [], statuses: ["new", "contacted", "replied", "qualified", "converted"] });
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  // Bulk email modal
+  // Email composer state
   const [emailModalOpen, setEmailModalOpen] = useState(false);
-  const [emailNiche, setEmailNiche] = useState("");
-  const [emailOffer, setEmailOffer] = useState("");
-  const [signature, setSignature] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [templates, setTemplates] = useState<string[]>([]);
-  const [editableTemplates, setEditableTemplates] = useState<string[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<number>(0);
-  const [sending, setSending] = useState(false);
-
-  // Attachment state
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [emailCC, setEmailCC] = useState("");
+  const [emailBCC, setEmailBCC] = useState("");
   const [uploadedFile, setUploadedFile] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
+  const [sending, setSending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchLeads = useCallback(async () => {
@@ -88,12 +83,10 @@ export default function LeadSelectionTable() {
       toast({ title: "Select at least one lead with email", variant: "destructive" });
       return;
     }
-    setEmailNiche("");
-    setEmailOffer("");
-    setSignature("");
-    setTemplates([]);
-    setEditableTemplates([]);
-    setSelectedTemplate(0);
+    setEmailSubject("");
+    setEmailBody("");
+    setEmailCC("");
+    setEmailBCC("");
     setUploadedFile(null);
     setEmailModalOpen(true);
   };
@@ -128,70 +121,52 @@ export default function LeadSelectionTable() {
 
   const removeAttachment = () => setUploadedFile(null);
 
-  const generateTemplates = async () => {
-    if (!emailNiche.trim() || !emailOffer.trim()) {
-      toast({ title: "Niche and offer are required", variant: "destructive" });
+  // Send emails with manual subject/body, placeholders, CC/BCC, attachment
+  const sendEmails = async () => {
+    if (!emailSubject.trim() || !emailBody.trim()) {
+      toast({ title: "Subject and body are required", variant: "destructive" });
       return;
     }
-    setGenerating(true);
-    try {
-      const res = await fetch(`${API}/outreach/generate-template`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject: emailNiche, offer: emailOffer, signature }),
-      });
-      const data = await res.json();
-      if (data.templates && data.templates.length > 0) {
-        setTemplates(data.templates);
-        setEditableTemplates(data.templates.map((t: string) => t));
-        setSelectedTemplate(0);
-      } else {
-        toast({ title: "AI generation failed", variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "Error generating templates", variant: "destructive" });
-    }
-    setGenerating(false);
-  };
 
-  const updateTemplate = (index: number, value: string) => {
-    const updated = [...editableTemplates];
-    updated[index] = value;
-    setEditableTemplates(updated);
-  };
-
-  const sendBulkEmails = async () => {
-    if (editableTemplates.length === 0) return;
-    const body = editableTemplates[selectedTemplate];
     setSending(true);
     let success = 0;
     let failed = 0;
 
     for (const lead of selectedLeads) {
       try {
+        // Replace placeholders
+        const firstName = lead.name?.split(' ')[0] || 'there';
+        const company = lead.company || 'your company';
+        let personalizedBody = emailBody
+          .replace(/{{firstName}}/g, firstName)
+          .replace(/{{company}}/g, company);
+
         const res = await fetch(`${API}/outreach/bulk-send`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             to: lead.email,
-            subject: emailNiche,
-            body,
+            subject: emailSubject,
+            body: personalizedBody,
             leadId: lead._id,
+            cc: emailCC || undefined,
+            bcc: emailBCC || undefined,
+            attachment: uploadedFile ? {
+              filename: uploadedFile.filename,
+              path: uploadedFile.path,
+              content_type: uploadedFile.mimetype,
+            } : undefined,
           }),
         });
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success) {
-            success++;
-          } else {
-            failed++;
-          }
-        } else {
+        if (res.ok) success++;
+        else {
+          const err = await res.json();
+          console.error("Send failed:", err);
           failed++;
         }
       } catch (e) {
-        console.error("Send error:", e);
+        console.error("Network error:", e);
         failed++;
       }
     }
@@ -203,7 +178,7 @@ export default function LeadSelectionTable() {
     if (failed > 0) {
       toast({
         title: `📧 ${success} sent, ${failed} failed`,
-        description: "Check Brevo API key in Settings.",
+        description: "Check backend logs for details.",
         variant: "destructive",
       });
     } else {
@@ -213,17 +188,27 @@ export default function LeadSelectionTable() {
 
   return (
     <div className="glass-card p-6 space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-xl font-semibold">Select Leads ({leads.length})</h2>
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === "Enter" && fetchLeads()} className="pl-9 w-48 bg-white/5 border-white/10" />
+            <Input
+              placeholder="Search..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && fetchLeads()}
+              className="pl-9 w-48 bg-white/5 border-white/10"
+            />
           </div>
-          <Button onClick={fetchLeads} variant="outline" size="sm"><RefreshCw className="h-4 w-4" /></Button>
+          <Button onClick={fetchLeads} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
+      {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
         <Select value={filters.niche} onValueChange={v => setFilters(prev => ({ ...prev, niche: v }))}>
           <SelectTrigger className="w-[140px] bg-white/5 border-white/10 text-sm"><SelectValue placeholder="Niche" /></SelectTrigger>
@@ -250,43 +235,75 @@ export default function LeadSelectionTable() {
           <Checkbox checked={filters.emailOnly} onCheckedChange={v => setFilters(prev => ({ ...prev, emailOnly: !!v }))} />
           Email only
         </label>
-        <Button onClick={fetchLeads} variant="outline" className="border-[#6366F1] text-[#6366F1]"><Filter className="h-4 w-4 mr-1" /> Apply</Button>
+        <Button onClick={fetchLeads} variant="outline" className="border-[#6366F1] text-[#6366F1]">
+          <Filter className="h-4 w-4 mr-1" /> Apply
+        </Button>
       </div>
 
+      {/* Bulk Actions */}
       {selectedIds.length > 0 && (
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-400">{selectedIds.length} selected</span>
-          <Button variant="outline" size="sm" onClick={openEmailModal}><Send className="h-4 w-4 mr-1" /> Send Bulk Email</Button>
-          <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}><Trash2 className="h-4 w-4 mr-1" /> Delete</Button>
+          <Button variant="outline" size="sm" onClick={openEmailModal}>
+            <Send className="h-4 w-4 mr-1" /> Send Email
+          </Button>
+          <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+            <Trash2 className="h-4 w-4 mr-1" /> Delete
+          </Button>
         </div>
       )}
 
+      {/* Delete Dialog */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="bg-[#111] border-white/10">
           <DialogHeader><DialogTitle>Delete {selectedIds.length} leads?</DialogTitle><DialogDescription>Cannot be undone.</DialogDescription></DialogHeader>
-          <DialogFooter><Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button><Button variant="destructive" onClick={bulkDelete}>Delete</Button></DialogFooter>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={bulkDelete}>Delete</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Email Composer Modal */}
       <Dialog open={emailModalOpen} onOpenChange={setEmailModalOpen}>
         <DialogContent className="bg-[#111] border-white/10 max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-[#6366F1]" /> Bulk Email to {selectedLeads.length} leads</DialogTitle>
-            <DialogDescription>Templates use <code className="bg-white/5 px-1 rounded">{"{{firstName}}"}</code> and <code className="bg-white/5 px-1 rounded">{"{{company}}"}</code> — replaced automatically.</DialogDescription>
+            <DialogTitle className="flex items-center gap-2"><Mail className="h-5 w-5 text-[#6366F1]" /> Compose Email to {selectedLeads.length} leads</DialogTitle>
+            <DialogDescription>
+              Use <code className="bg-white/5 px-1 rounded">{"{{firstName}}"}</code> and <code className="bg-white/5 px-1 rounded">{"{{company}}"}</code> placeholders – they will be replaced automatically.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div><label className="text-sm text-gray-400 mb-1 block">Subject / Niche</label><Input placeholder="e.g. Products Research Report" value={emailNiche} onChange={e => setEmailNiche(e.target.value)} className="bg-white/5 border-white/10" /></div>
-            <div><label className="text-sm text-gray-400 mb-1 block">Your Offer / Key Points</label><Textarea placeholder="e.g. Free complete products research report" value={emailOffer} onChange={e => setEmailOffer(e.target.value)} rows={3} className="bg-white/5 border-white/10" /></div>
-            <div><label className="text-sm text-gray-400 mb-1 block">Your Name (Signature)</label><Input placeholder="e.g. Albert, High-tech" value={signature} onChange={e => setSignature(e.target.value)} className="bg-white/5 border-white/10" /></div>
+            <div>
+              <label className="text-sm text-gray-400 mb-1 block">Subject *</label>
+              <Input placeholder="Email subject..." value={emailSubject} onChange={e => setEmailSubject(e.target.value)} className="bg-white/5 border-white/10" />
+            </div>
+            <div>
+              <label className="text-sm text-gray-400 mb-1 block">Body *</label>
+              <Textarea placeholder="Write your email..." value={emailBody} onChange={e => setEmailBody(e.target.value)} rows={8} className="bg-white/5 border-white/10" />
+              <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                <Info className="h-3 w-3" /> Placeholders: {`{{firstName}}`}, {`{{company}}`}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm text-gray-400 mb-1 block">CC (optional)</label>
+                <Input placeholder="cc@example.com" value={emailCC} onChange={e => setEmailCC(e.target.value)} className="bg-white/5 border-white/10" />
+              </div>
+              <div>
+                <label className="text-sm text-gray-400 mb-1 block">BCC (optional)</label>
+                <Input placeholder="bcc@example.com" value={emailBCC} onChange={e => setEmailBCC(e.target.value)} className="bg-white/5 border-white/10" />
+              </div>
+            </div>
 
-            {/* File Upload */}
+            {/* Attachment */}
             <div>
               <label className="text-sm text-gray-400 mb-1 block">Attachment (max 10MB)</label>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="gap-1" disabled={uploading}>
                   {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />} Choose File
                 </Button>
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.md" />
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
                 {uploadedFile && (
                   <span className="text-xs text-green-400 flex items-center gap-1 bg-green-500/10 px-2 py-1 rounded-full">
                     <File className="h-3 w-3" /> {uploadedFile.filename}
@@ -296,35 +313,15 @@ export default function LeadSelectionTable() {
               </div>
             </div>
 
-            <Button onClick={generateTemplates} disabled={generating || !emailNiche || !emailOffer} className="bg-[#6366F1] gap-2 w-full">
-              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {generating ? "Generating..." : "Generate Templates"}
+            <Button onClick={sendEmails} disabled={sending || !emailSubject || !emailBody} className="w-full bg-green-600 hover:bg-green-700 gap-2">
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {sending ? "Sending..." : `Send to ${selectedLeads.length} leads`}
             </Button>
-
-            {editableTemplates.length > 0 && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-                <p className="text-sm text-gray-400">Select & edit your template:</p>
-                {editableTemplates.map((tmpl, idx) => (
-                  <div key={idx} className={`p-3 rounded-lg border cursor-pointer ${selectedTemplate === idx ? "border-[#6366F1] bg-[#6366F1]/10" : "border-white/10"}`} onClick={() => setSelectedTemplate(idx)}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${selectedTemplate === idx ? "border-[#6366F1]" : "border-gray-500"}`}>
-                        {selectedTemplate === idx && <div className="w-2 h-2 rounded-full bg-[#6366F1]" />}
-                      </div>
-                      <span className="text-sm">Option {idx + 1}</span>
-                    </div>
-                    <Textarea value={tmpl} onChange={e => updateTemplate(idx, e.target.value)} rows={6} className="bg-transparent border-white/10 text-sm" />
-                  </div>
-                ))}
-                <Button onClick={sendBulkEmails} disabled={sending} className="w-full bg-green-600 hover:bg-green-700 gap-2">
-                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  {sending ? "Sending..." : `Send to ${selectedLeads.length} leads`}
-                </Button>
-              </motion.div>
-            )}
           </div>
         </DialogContent>
       </Dialog>
 
+      {/* Loading State */}
       {loading ? (
         <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full bg-white/5" />)}</div>
       ) : leads.length === 0 ? (
@@ -349,9 +346,7 @@ export default function LeadSelectionTable() {
                 <TableCell>{lead.company || "—"}</TableCell>
                 <TableCell className="text-blue-400 text-sm">{lead.email || "—"}</TableCell>
                 <TableCell className="text-green-400 text-sm">{lead.phone || "—"}</TableCell>
-                <TableCell>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${lead.status === "converted" ? "bg-green-500/20 text-green-300" : lead.status === "replied" ? "bg-blue-500/20 text-blue-300" : lead.status === "contacted" ? "bg-yellow-500/20 text-yellow-300" : "bg-gray-500/20 text-gray-400"}`}>{lead.status}</span>
-                </TableCell>
+                <TableCell><span className={`px-2 py-1 rounded-full text-xs font-medium ${lead.status === "converted" ? "bg-green-500/20 text-green-300" : lead.status === "replied" ? "bg-blue-500/20 text-blue-300" : lead.status === "contacted" ? "bg-yellow-500/20 text-yellow-300" : "bg-gray-500/20 text-gray-400"}`}>{lead.status}</span></TableCell>
               </TableRow>
             ))}
           </TableBody>
