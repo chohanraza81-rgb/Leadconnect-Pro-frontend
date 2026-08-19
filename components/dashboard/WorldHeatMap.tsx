@@ -6,40 +6,50 @@ import { useState } from "react";
 
 const geoUrl = "/world-110m.json";
 
-// Map country names (as stored in DB) to numeric IDs used by the TopoJSON
+// Map country names to numeric IDs used by TopoJSON
 const countryToNumericId: Record<string, string> = {
   US: "840",
+  USA: "840",
   UK: "826",
   GB: "826",
   CA: "124",
+  Canada: "124",
   AU: "036",
+  Australia: "036",
   DE: "276",
+  Germany: "276",
   SG: "702",
+  Singapore: "702",
   SA: "682",
+  "Saudi Arabia": "682",
   AE: "784",
+  UAE: "784",
   PK: "586",
+  Pakistan: "586",
   IN: "356",
+  India: "356",
   TR: "792",
+  Turkey: "792",
   MY: "458",
+  Malaysia: "458",
   NZ: "554",
-  "NEW ZEALAND": "554",
+  "New Zealand": "554",
   ZA: "710",
-  "SOUTH AFRICA": "710",
-  // Add more if needed
+  "South Africa": "710",
 };
 
-function getCountryCode(country: string) {
-  const upper = country?.trim?.()?.toUpperCase?.() || "";
-  return countryToNumericId[upper] || "";
+function getNumericId(country: string) {
+  const trimmed = country?.trim();
+  if (!trimmed) return "";
+  return countryToNumericId[trimmed] || countryToNumericId[trimmed.toUpperCase()] || "";
 }
 
 export default function WorldHeatMap({ data }: { data: Record<string, number> }) {
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
 
-  // Convert data to numeric ID map
   const numericData: Record<string, number> = {};
   Object.entries(data || {}).forEach(([country, count]) => {
-    const id = getCountryCode(country);
+    const id = getNumericId(country);
     if (id) numericData[id] = (numericData[id] || 0) + count;
   });
 
