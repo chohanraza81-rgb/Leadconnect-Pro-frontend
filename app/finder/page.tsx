@@ -103,30 +103,24 @@ export default function FinderPage() {
         🔍 Lead Finder
       </h1>
 
-      {/* Mode Toggle + Search Form */}
-      <div className="glass-card p-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-400">Mode:</span>
-          <div className="flex bg-white/5 rounded-lg p-0.5">
-            <Button
-              variant={leadMode === "business" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setLeadMode("business")}
-              className="gap-1"
-            >
-              <Briefcase className="h-4 w-4" /> Business
-            </Button>
-            <Button
-              variant={leadMode === "consumer" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setLeadMode("consumer")}
-              className="gap-1"
-            >
-              <User className="h-4 w-4" /> Consumer
-            </Button>
-          </div>
+      {/* Mode Toggle */}
+      <div className="glass-card p-4 flex items-center gap-3">
+        <span className="text-sm text-gray-400">Mode:</span>
+        <div className="flex bg-white/5 rounded-lg p-1">
+          <Button variant={leadMode === "business" ? "default" : "ghost"} size="sm" onClick={() => setLeadMode("business")} className="gap-1">
+            <Briefcase className="h-4 w-4" /> Business
+          </Button>
+          <Button variant={leadMode === "consumer" ? "default" : "ghost"} size="sm" onClick={() => setLeadMode("consumer")} className="gap-1">
+            <User className="h-4 w-4" /> Consumer
+          </Button>
         </div>
+        {leadMode === "consumer" && (
+          <span className="text-xs text-green-400 ml-2">🛒 Direct buyer-intent leads</span>
+        )}
+      </div>
 
+      {/* Search Form */}
+      <div className="glass-card p-6 space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
             <label className="text-xs text-gray-400 mb-1 block">Niche/Industry *</label>
