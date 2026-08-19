@@ -121,7 +121,6 @@ export default function LeadSelectionTable() {
 
   const removeAttachment = () => setUploadedFile(null);
 
-  // Send emails with manual subject/body, placeholders, CC/BCC, attachment
   const sendEmails = async () => {
     if (!emailSubject.trim() || !emailBody.trim()) {
       toast({ title: "Subject and body are required", variant: "destructive" });
@@ -134,7 +133,6 @@ export default function LeadSelectionTable() {
 
     for (const lead of selectedLeads) {
       try {
-        // Replace placeholders
         const firstName = lead.name?.split(' ')[0] || 'there';
         const company = lead.company || 'your company';
         let personalizedBody = emailBody
