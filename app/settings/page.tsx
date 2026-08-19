@@ -2,9 +2,9 @@
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
-import { Save, CheckCircle2, Loader2, Key, Mail, Globe, Bot, Send } from "lucide-react";
+import { Save, CheckCircle2, Loader2, Key, Mail, Globe, Bot, Send, Wrench } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -13,10 +13,10 @@ export default function SettingsPage() {
   const [appPassword, setAppPassword] = useState("");
   const [serpApiKey, setSerpApiKey] = useState("");
   const [groqApiKey, setGroqApiKey] = useState("");
-  const [resendApiKey, setResendApiKey] = useState("");
+  const [brevoApiKey, setBrevoApiKey] = useState("");
+  const [scraperApiKey, setScraperApiKey] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const { toast } = useToast();
 
   useEffect(() => {
     fetch(`${API}/settings`)
@@ -27,7 +27,8 @@ export default function SettingsPage() {
           setAppPassword(data.appPassword || "");
           setSerpApiKey(data.serpApiKey || "");
           setGroqApiKey(data.groqApiKey || "");
-          setResendApiKey(data.resendApiKey || "");
+          setBrevoApiKey(data.brevoApiKey || "");
+          setScraperApiKey(data.scraperApiKey || "");
         }
       })
       .catch(() => {});
@@ -45,7 +46,8 @@ export default function SettingsPage() {
           appPassword,
           serpApiKey,
           groqApiKey,
-          resendApiKey,
+          brevoApiKey,
+          scraperApiKey,
         }),
       });
       setSaved(true);
@@ -91,11 +93,19 @@ export default function SettingsPage() {
       type: "password",
     },
     {
-      label: "Resend API Key",
-      value: resendApiKey,
-      setter: setResendApiKey,
-      placeholder: "re_... from resend.com",
+      label: "Brevo API Key",
+      value: brevoApiKey,
+      setter: setBrevoApiKey,
+      placeholder: "xkeysib-... from brevo.com",
       icon: Send,
+      type: "password",
+    },
+    {
+      label: "Scraper API Key",
+      value: scraperApiKey,
+      setter: setScraperApiKey,
+      placeholder: "scraperapi key from scraperapi.com",
+      icon: Wrench,
       type: "password",
     },
   ];
