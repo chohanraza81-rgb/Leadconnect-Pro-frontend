@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Search, Filter, RefreshCw, Send, Paperclip, File, X, Mail, Users, Info } from "lucide-react";
+import { Trash2, Search, Filter, RefreshCw, Send, Paperclip, File, X, Mail, Users, Info, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 const API = "https://leadconnect-pro-backend-production.up.railway.app/api"; // Hardcoded
