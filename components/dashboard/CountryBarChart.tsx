@@ -2,38 +2,35 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-// Map raw country values to proper display names
+// Short, clear country names
 const countryNameMap: Record<string, string> = {
-  US: "United States",
-  UK: "United Kingdom",
-  GB: "United Kingdom",
+  US: "USA",
+  UK: "UK",
+  GB: "UK",
   CA: "Canada",
   AU: "Australia",
   DE: "Germany",
   SG: "Singapore",
   SA: "Saudi Arabia",
-  AE: "United Arab Emirates",
+  AE: "UAE",
   PK: "Pakistan",
   IN: "India",
   TR: "Turkey",
   MY: "Malaysia",
   NZ: "New Zealand",
-  "NEW ZEALAND": "New Zealand",
-  "SOUTH AFRICA": "South Africa",
   ZA: "South Africa",
-  // Add more as needed
 };
 
 function getDisplayName(country: string) {
-  const upper = country?.toUpperCase?.() || "";
-  return countryNameMap[upper] || country || upper;
+  const upper = country?.trim()?.toUpperCase() || "";
+  return countryNameMap[upper] || upper;
 }
 
 export default function CountryBarChart({ data }: { data: { country: string; count: number }[] }) {
   const chartData = (data || [])
     .filter(d => d.count > 0)
     .sort((a, b) => b.count - a.count)
-    .slice(0, 10) // Show top 10 for clean look
+    .slice(0, 10)
     .map(d => ({
       country: getDisplayName(d.country),
       count: d.count,
