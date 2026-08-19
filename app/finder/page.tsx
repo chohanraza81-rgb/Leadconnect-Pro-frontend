@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Search, Copy, Phone, Loader2, User, Briefcase, TrendingUp } from "lucide-react";
+import { Trash2, Search, Copy, Phone, Loader2, User, Briefcase, ExternalLink, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import ExportMenu from "@/components/ui/export-menu";
 
@@ -22,8 +22,7 @@ export default function FinderPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [stats, setStats] = useState<any>(null);
-  const [leadMode, setLeadMode] = useState<"business" | "consumer">("business");
+  const [leadMode, setLeadMode] = useState<"business" | "consumer">("consumer");
 
   const handleFind = async () => {
     if (!niche.trim() || !country.trim()) {
@@ -32,7 +31,6 @@ export default function FinderPage() {
     }
     setLoading(true);
     setLeads([]);
-    setStats(null);
     try {
       const endpoint = leadMode === "consumer" ? "/api/consumer-finder" : "/api/finder";
       const res = await fetch(`${API}${endpoint}`, {
@@ -43,21 +41,17 @@ export default function FinderPage() {
       const data = await res.json();
       if (data.leads && data.leads.length > 0) {
         setLeads(data.leads);
-        setStats(data.stats || { total: data.leads.length });
         toast({
           title: leadMode === "consumer"
-            ? `🛒 Found ${data.leads.length} buyer-intent leads!`
-            : `✅ Found ${data.leads.length} leads with emails!`,
+            ? `🛒 Found ${data.leads.length} consumer leads!`
+            : `✅ Found ${data.leads.length} business leads!`,
         });
-      } else if (Array.isArray(data) && data.length > 0) {
-        setLeads(data);
-        setStats({ total: data.length });
-        toast({ title: `✅ Found ${data.length} leads` });
       } else {
         toast({ title: "No leads found. Try different terms.", variant: "destructive" });
       }
-    } catch {
-      toast({ title: "❌ Error finding leads.", variant: "destructive" });
+    } catch (e) {
+      console.error("Find error:", e);
+      toast({ title: "❌ Error finding leads", description: "Check backend logs", variant: "destructive" });
     }
     setLoading(false);
   };
@@ -68,7 +62,8 @@ export default function FinderPage() {
     return leads.filter(l =>
       l.name?.toLowerCase().includes(s) ||
       l.company?.toLowerCase().includes(s) ||
-      l.email?.toLowerCase().includes(s)
+      l.email?.toLowerCase().includes(s) ||
+      l.source?.toLowerCase().includes(s)
     );
   }, [leads, search]);
 
@@ -87,14 +82,9 @@ export default function FinderPage() {
     setDeleteOpen(false);
   };
 
-  const copyEmail = (email: string) => {
-    navigator.clipboard.writeText(email);
-    toast({ title: "📋 Email copied!" });
-  };
-
-  const openWhatsApp = (phone: string) => {
-    const clean = phone.replace(/[^0-9+]/g, "");
-    window.open(`https://wa.me/${clean}`, "_blank");
+  const copyText = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: `📋 ${label} copied!` });
   };
 
   return (
@@ -107,16 +97,14 @@ export default function FinderPage() {
       <div className="glass-card p-4 flex items-center gap-3">
         <span className="text-sm text-gray-400">Mode:</span>
         <div className="flex bg-white/5 rounded-lg p-1">
-          <Button variant={leadMode === "business" ? "default" : "ghost"} size="sm" onClick={() => setLeadMode("business")} className="gap-1">
-            <Briefcase className="h-4 w-4" /> Business
-          </Button>
           <Button variant={leadMode === "consumer" ? "default" : "ghost"} size="sm" onClick={() => setLeadMode("consumer")} className="gap-1">
             <User className="h-4 w-4" /> Consumer
           </Button>
+          <Button variant={leadMode === "business" ? "default" : "ghost"} size="sm" onClick={() => setLeadMode("business")} className="gap-1">
+            <Briefcase className="h-4 w-4" /> Business
+          </Button>
         </div>
-        {leadMode === "consumer" && (
-          <span className="text-xs text-green-400 ml-2">🛒 Direct buyer-intent leads</span>
-        )}
+        {leadMode === "consumer" && <span className="text-xs text-green-400 ml-2">🛒 Buyer-intent leads</span>}
       </div>
 
       {/* Search Form */}
@@ -142,14 +130,6 @@ export default function FinderPage() {
         </div>
       </div>
 
-      {/* Stats */}
-      {stats && (
-        <div className="flex flex-wrap gap-4 text-sm text-gray-400">
-          <span>🔗 {stats.total} leads found</span>
-          {leadMode === "consumer" && <span>🛒 Buyer Intent Mode</span>}
-        </div>
-      )}
-
       {/* Loading */}
       {loading && (
         <div className="glass-card p-6 space-y-3">
@@ -170,15 +150,10 @@ export default function FinderPage() {
               <ExportMenu data={filteredLeads} filename={`${leadMode}-leads`} />
               {selectedIds.length > 0 && (
                 <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="destructive" size="sm"><Trash2 className="h-4 w-4 mr-1" /> Delete ({selectedIds.length})</Button>
-                  </DialogTrigger>
+                  <DialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="h-4 w-4 mr-1" /> Delete ({selectedIds.length})</Button></DialogTrigger>
                   <DialogContent className="bg-[#111] border-white/10">
                     <DialogHeader><DialogTitle>Delete leads?</DialogTitle><DialogDescription>Cannot be undone.</DialogDescription></DialogHeader>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
-                      <Button variant="destructive" onClick={bulkDelete}>Delete</Button>
-                    </DialogFooter>
+                    <DialogFooter><Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button><Button variant="destructive" onClick={bulkDelete}>Delete</Button></DialogFooter>
                   </DialogContent>
                 </Dialog>
               )}
@@ -195,7 +170,7 @@ export default function FinderPage() {
                   <TableHead>Email</TableHead>
                   <TableHead>Phone</TableHead>
                   {leadMode === "consumer" && <TableHead>Score</TableHead>}
-                  <TableHead className="w-[100px]">Actions</TableHead>
+                  <TableHead className="w-[120px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -206,7 +181,9 @@ export default function FinderPage() {
                     <TableCell>{lead.company || "—"}</TableCell>
                     <TableCell>
                       {lead.email ? (
-                        <button onClick={() => copyEmail(lead.email)} className="text-blue-400 hover:underline text-sm">{lead.email}</button>
+                        <button onClick={() => copyText(lead.email, "Email")} className="text-blue-400 hover:underline text-sm flex items-center gap-1">
+                          <Mail className="h-3 w-3" /> {lead.email}
+                        </button>
                       ) : <span className="text-gray-500">—</span>}
                     </TableCell>
                     <TableCell className="text-green-400 text-sm">{lead.phone || "—"}</TableCell>
@@ -222,14 +199,9 @@ export default function FinderPage() {
                     )}
                     <TableCell>
                       <div className="flex gap-1">
-                        {lead.phone && (
-                          <Button size="sm" variant="outline" className="h-8 border-green-500/30 text-green-400 text-xs" onClick={() => openWhatsApp(lead.phone)}>
-                            <Phone className="h-3 w-3" />
-                          </Button>
-                        )}
-                        {lead.email && (
-                          <Button size="sm" variant="outline" className="h-8 border-blue-500/30 text-blue-400 text-xs" onClick={() => copyEmail(lead.email)}>
-                            <Copy className="h-3 w-3" />
+                        {lead.source && (
+                          <Button size="sm" variant="outline" className="h-8 border-purple-500/30 text-purple-400 text-xs" onClick={() => window.open(lead.source, '_blank')}>
+                            <ExternalLink className="h-3 w-3" /> Visit
                           </Button>
                         )}
                       </div>
