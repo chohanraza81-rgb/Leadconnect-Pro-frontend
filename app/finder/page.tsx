@@ -11,7 +11,8 @@ import { Trash2, Search, Copy, Phone, Loader2, User, Briefcase, ExternalLink, Ma
 import { motion } from "framer-motion";
 import ExportMenu from "@/components/ui/export-menu";
 
-const API = process.env.NEXT_PUBLIC_API_URL;
+// ✅ Hardcoded backend URL – works even if env var is missing
+const API = "https://leadconnect-pro-backend-production.up.railway.app/api";
 
 export default function FinderPage() {
   const [niche, setNiche] = useState("");
@@ -33,11 +34,13 @@ export default function FinderPage() {
     setLeads([]);
     try {
       const endpoint = leadMode === "consumer" ? "/api/consumer-finder" : "/api/finder";
+      console.log(`Calling: ${API}${endpoint}`);
       const res = await fetch(`${API}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ niche, country, jobTitle, productType: leadMode }),
       });
+
       const data = await res.json();
       if (data.leads && data.leads.length > 0) {
         setLeads(data.leads);
@@ -51,7 +54,11 @@ export default function FinderPage() {
       }
     } catch (e) {
       console.error("Find error:", e);
-      toast({ title: "❌ Error finding leads", description: "Check backend logs", variant: "destructive" });
+      toast({
+        title: "❌ Connection failed",
+        description: "Check internet or backend URL in console.",
+        variant: "destructive",
+      });
     }
     setLoading(false);
   };
