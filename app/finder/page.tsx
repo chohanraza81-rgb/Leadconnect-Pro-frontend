@@ -11,7 +11,7 @@ import { Trash2, Search, Copy, Phone, Loader2, User, Briefcase, ExternalLink, Ma
 import { motion } from "framer-motion";
 import ExportMenu from "@/components/ui/export-menu";
 
-// ✅ Hardcoded backend URL – works even if env var is missing
+// ✅ HARDCODED BACKEND URL – change if your Railway URL changes
 const API = "https://leadconnect-pro-backend-production.up.railway.app/api";
 
 export default function FinderPage() {
