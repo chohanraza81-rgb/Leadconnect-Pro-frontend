@@ -11,7 +11,7 @@ import { Trash2, Search, Copy, Phone, Loader2, User, Briefcase, ExternalLink, Ma
 import { motion } from "framer-motion";
 import ExportMenu from "@/components/ui/export-menu";
 
-// ✅ HARDCODED BACKEND URL – change if your Railway URL changes
+// ✅ HARDCODED BACKEND URL – ends with /api
 const API = "https://leadconnect-pro-backend-production.up.railway.app/api";
 
 export default function FinderPage() {
@@ -33,7 +33,8 @@ export default function FinderPage() {
     setLoading(true);
     setLeads([]);
     try {
-      const endpoint = leadMode === "consumer" ? "/api/consumer-finder" : "/api/finder";
+      // ✅ FIXED: endpoint no longer includes /api
+      const endpoint = leadMode === "consumer" ? "/consumer-finder" : "/finder";
       console.log(`Calling: ${API}${endpoint}`);
       const res = await fetch(`${API}${endpoint}`, {
         method: "POST",
@@ -78,7 +79,7 @@ export default function FinderPage() {
   const toggleOne = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const bulkDelete = async () => {
-    await fetch(`${API}/leads/bulk-delete`, {
+    await fetch(`${API}/leads/bulk-delete`, {   // ✅ This is correct: API ends with /api, so /api/leads...
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids: selectedIds }),
