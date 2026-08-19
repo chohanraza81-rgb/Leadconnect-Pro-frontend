@@ -11,7 +11,7 @@ import { Trash2, Search, Copy, Phone, Loader2, User, Briefcase, ExternalLink, Ma
 import { motion } from "framer-motion";
 import ExportMenu from "@/components/ui/export-menu";
 
-// ✅ HARDCODED BACKEND URL – ends with /api
+// ✅ HARDCODED BACKEND URL – change if your Railway URL changes
 const API = "https://leadconnect-pro-backend-production.up.railway.app/api";
 
 export default function FinderPage() {
@@ -24,6 +24,7 @@ export default function FinderPage() {
   const [search, setSearch] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [leadMode, setLeadMode] = useState<"business" | "consumer">("consumer");
+  const [onlyContact, setOnlyContact] = useState(false); // NEW
 
   const handleFind = async () => {
     if (!niche.trim() || !country.trim()) {
@@ -33,7 +34,7 @@ export default function FinderPage() {
     setLoading(true);
     setLeads([]);
     try {
-      // ✅ FIXED: endpoint no longer includes /api
+      // ✅ Correct endpoint (no double /api)
       const endpoint = leadMode === "consumer" ? "/consumer-finder" : "/finder";
       console.log(`Calling: ${API}${endpoint}`);
       const res = await fetch(`${API}${endpoint}`, {
@@ -47,7 +48,7 @@ export default function FinderPage() {
         setLeads(data.leads);
         toast({
           title: leadMode === "consumer"
-            ? `🛒 Found ${data.leads.length} consumer leads!`
+            ? `🛒 Found ${data.leads.length} buyer leads!`
             : `✅ Found ${data.leads.length} business leads!`,
         });
       } else {
@@ -65,21 +66,28 @@ export default function FinderPage() {
   };
 
   const filteredLeads = useMemo(() => {
-    if (!search.trim()) return leads;
-    const s = search.toLowerCase();
-    return leads.filter(l =>
-      l.name?.toLowerCase().includes(s) ||
-      l.company?.toLowerCase().includes(s) ||
-      l.email?.toLowerCase().includes(s) ||
-      l.source?.toLowerCase().includes(s)
-    );
-  }, [leads, search]);
+    let list = leads;
+    if (onlyContact) {
+      list = list.filter(l => l.email || l.phone);
+    }
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      list = list.filter(l =>
+        l.name?.toLowerCase().includes(s) ||
+        l.company?.toLowerCase().includes(s) ||
+        l.email?.toLowerCase().includes(s) ||
+        l.phone?.toLowerCase().includes(s) ||
+        l.source?.toLowerCase().includes(s)
+      );
+    }
+    return list;
+  }, [leads, search, onlyContact]);
 
   const toggleSelectAll = (checked: boolean) => setSelectedIds(checked ? filteredLeads.map(l => l._id) : []);
   const toggleOne = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const bulkDelete = async () => {
-    await fetch(`${API}/leads/bulk-delete`, {   // ✅ This is correct: API ends with /api, so /api/leads...
+    await fetch(`${API}/leads/bulk-delete`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids: selectedIds }),
@@ -112,7 +120,7 @@ export default function FinderPage() {
             <Briefcase className="h-4 w-4" /> Business
           </Button>
         </div>
-        {leadMode === "consumer" && <span className="text-xs text-green-400 ml-2">🛒 Buyer-intent leads</span>}
+        {leadMode === "consumer" && <span className="text-xs text-green-400 ml-2">🛒 Buyer‑intent leads</span>}
       </div>
 
       {/* Search Form */}
@@ -120,7 +128,7 @@ export default function FinderPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
             <label className="text-xs text-gray-400 mb-1 block">Niche/Industry *</label>
-            <Input placeholder="e.g. Digital Marketing" value={niche} onChange={e => setNiche(e.target.value)} className="bg-white/5 border-white/10" />
+            <Input placeholder="e.g. Headphones" value={niche} onChange={e => setNiche(e.target.value)} className="bg-white/5 border-white/10" />
           </div>
           <div>
             <label className="text-xs text-gray-400 mb-1 block">Country *</label>
@@ -136,6 +144,12 @@ export default function FinderPage() {
             </Button>
           </div>
         </div>
+
+        {/* NEW: Only Contact Toggle */}
+        <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+          <Checkbox checked={onlyContact} onCheckedChange={v => setOnlyContact(!!v)} />
+          Show only leads with contact (email/phone)
+        </label>
       </div>
 
       {/* Loading */}
@@ -146,10 +160,10 @@ export default function FinderPage() {
       )}
 
       {/* Results */}
-      {!loading && leads.length > 0 && (
+      {!loading && filteredLeads.length > 0 && (
         <div className="glass-card p-6 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <h2 className="text-xl font-semibold">Results ({leads.length} leads)</h2>
+            <h2 className="text-xl font-semibold">Results ({filteredLeads.length} leads)</h2>
             <div className="flex items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -198,8 +212,8 @@ export default function FinderPage() {
                     {leadMode === "consumer" && (
                       <TableCell>
                         <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                          (lead.leadScore || 0) >= 20 ? 'bg-green-500/20 text-green-300' :
-                          (lead.leadScore || 0) >= 10 ? 'bg-yellow-500/20 text-yellow-300' : 'bg-gray-500/20 text-gray-400'
+                          (lead.leadScore || 0) >= 40 ? 'bg-green-500/20 text-green-300' :
+                          (lead.leadScore || 0) >= 20 ? 'bg-yellow-500/20 text-yellow-300' : 'bg-gray-500/20 text-gray-400'
                         }`}>
                           {lead.leadScore || 0}
                         </span>
@@ -222,7 +236,7 @@ export default function FinderPage() {
         </div>
       )}
 
-      {!loading && leads.length === 0 && (
+      {!loading && filteredLeads.length === 0 && (
         <div className="glass-card p-12 text-center">
           <Search className="h-12 w-12 mx-auto text-gray-600 mb-4" />
           <h3 className="text-lg font-medium text-gray-400 mb-2">No leads yet</h3>
@@ -231,4 +245,4 @@ export default function FinderPage() {
       )}
     </motion.div>
   );
-}
+    }
