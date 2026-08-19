@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Search, Copy, Phone, Loader2, TrendingUp, User, Briefcase } from "lucide-react";
+import { Trash2, Search, Copy, Phone, Loader2, User, Briefcase, TrendingUp } from "lucide-react";
 import { motion } from "framer-motion";
 import ExportMenu from "@/components/ui/export-menu";
 
