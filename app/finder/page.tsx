@@ -12,7 +12,7 @@ import { motion } from "framer-motion";
 import ExportMenu from "@/components/ui/export-menu";
 
 // ✅ HARDCODED BACKEND URL – change if your Railway URL changes
-const API = "https://leadconnect-pro-backend-production.up.railway.app/api";
+const API = "https://leadconnect-pro-backend-production-0edb.up.railway.app/api";
 
 export default function FinderPage() {
   const [niche, setNiche] = useState("");
