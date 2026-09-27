@@ -12,7 +12,8 @@ import ExportMenu from "@/components/ui/export-menu";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const API = process.env.NEXT_PUBLIC_API_URL;
+// ✅ Hardcoded fallback – ensures connection works even if env var missing
+const API = process.env.NEXT_PUBLIC_API_URL || "https://leadconnect-pro-backend-production-0edb.up.railway.app/api";
 
 export default function Dashboard() {
   const [stats, setStats] = useState({ totalLeads: 0, emailsFound: 0, whatsappClicks: 0, campaignsSent: 0 });
@@ -28,6 +29,8 @@ export default function Dashboard() {
 
   const loadDashboard = async () => {
     try {
+      console.log("Dashboard API:", API);
+
       const [statsRes, countryRes, perfRes, geoRes, leadsRes] = await Promise.all([
         fetch(`${API}/dashboard/stats`).then(r => r.json()),
         fetch(`${API}/dashboard/country-stats`).then(r => r.json()),
@@ -35,6 +38,9 @@ export default function Dashboard() {
         fetch(`${API}/dashboard/geo-data`).then(r => r.json()),
         fetch(`${API}/leads`).then(r => r.json()),
       ]);
+
+      console.log("Performance data:", perfRes);
+
       setStats(statsRes || { totalLeads: 0, emailsFound: 0, whatsappClicks: 0, campaignsSent: 0 });
       setCountryData(Array.isArray(countryRes) ? countryRes : []);
       setPerfData(perfRes || { whatsapp: [], emails: [] });
