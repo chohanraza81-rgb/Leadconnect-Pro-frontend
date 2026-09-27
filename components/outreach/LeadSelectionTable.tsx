@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Trash2, Search, Filter, RefreshCw, Send, Paperclip, File, X, Mail, Users, Info, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
-const API = "https://leadconnect-pro-backend-production.up.railway.app/api"; // Hardcoded
+const API = "https://leadconnect-pro-backend-production-0edb.up.railway.app/api"; // Hardcoded
 
 export default function LeadSelectionTable() {
   const [leads, setLeads] = useState<any[]>([]);
