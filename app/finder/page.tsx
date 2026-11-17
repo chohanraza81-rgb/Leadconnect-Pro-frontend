@@ -7,10 +7,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Search, Copy, Loader2, User, Briefcase, ExternalLink, Mail, Phone } from "lucide-react";
+import { Trash2, Search, Copy, Loader2, ExternalLink, Mail, Phone, Globe, Target } from "lucide-react";
 import { motion } from "framer-motion";
 import ExportMenu from "@/components/ui/export-menu";
 import DashboardLayout from "@/components/DashboardLayout";
+import PageHeader from "@/components/PageHeader";
 
 const API =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -25,7 +26,6 @@ export default function FinderPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [leadMode, setLeadMode] = useState<"business" | "consumer">("consumer");
   const [onlyContact, setOnlyContact] = useState(false);
 
   const handleFind = async () => {
@@ -36,21 +36,15 @@ export default function FinderPage() {
     setLoading(true);
     setLeads([]);
     try {
-      const endpoint = leadMode === "consumer" ? "/consumer-finder" : "/finder";
-      const res = await fetch(`${API}${endpoint}`, {
+      const res = await fetch(`${API}/finder`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ niche, country, jobTitle, productType: leadMode }),
+        body: JSON.stringify({ niche, country, jobTitle }),
       });
       const data = await res.json();
       if (data.leads && data.leads.length > 0) {
         setLeads(data.leads);
-        toast({
-          title:
-            leadMode === "consumer"
-              ? `Found ${data.leads.length} buyer leads`
-              : `Found ${data.leads.length} business leads`,
-        });
+        toast({ title: `Found ${data.leads.length} business leads` });
       } else {
         toast({ title: "No leads found. Try different terms.", variant: "destructive" });
       }
@@ -106,82 +100,60 @@ export default function FinderPage() {
 
   const content = (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      {/* HEADER */}
-      <div className="space-y-1.5">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">🔍 Lead Finder</h1>
-        <p className="text-sm text-muted-foreground">
-          Discover verified business and consumer leads by niche and country.
-        </p>
-      </div>
+      <PageHeader
+        title="Lead Finder"
+        description="Discover verified business leads by niche and country."
+        icon={<Search className="h-6 w-6" />}
+      />
 
-      {/* MODE TOGGLE */}
-      <div className="rounded-2xl bg-card border border-border p-3 flex flex-wrap items-center gap-3">
-        <span className="text-sm font-medium text-muted-foreground px-2">Mode</span>
-        <div className="flex bg-muted rounded-lg p-1">
-          <button
-            onClick={() => setLeadMode("consumer")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${
-              leadMode === "consumer"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <User className="h-4 w-4" /> Consumer
-          </button>
-          <button
-            onClick={() => setLeadMode("business")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${
-              leadMode === "business"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Briefcase className="h-4 w-4" /> Business
-          </button>
+      {/* Info banner (replaces mode toggle) */}
+      <div className="rounded-2xl bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-100 dark:border-indigo-900/50 p-4 flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-950/50">
+          <Target className="h-5 w-5 text-indigo-600" />
         </div>
-        {leadMode === "consumer" && (
-          <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-full">
-            Buyer-intent leads
-          </span>
-        )}
+        <div>
+          <p className="text-sm font-semibold text-foreground">Business Leads Mode</p>
+          <p className="text-xs text-muted-foreground">
+            Find verified B2B prospects with contact details, job titles, and source links.
+          </p>
+        </div>
       </div>
 
-      {/* SEARCH FORM */}
-      <div className="rounded-2xl bg-card border border-border p-6 space-y-4">
+      {/* Search Form */}
+      <div className="rounded-2xl bg-card border border-border p-6 space-y-4 shadow-sm">
+        <div className="flex items-center gap-2 mb-2">
+          <Globe className="h-5 w-5 text-indigo-600" />
+          <h2 className="font-semibold text-foreground">Search parameters</h2>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Niche / Industry *</label>
-            <Input placeholder="e.g. Headphones" value={niche} onChange={(e) => setNiche(e.target.value)} />
+            <label className="text-xs font-semibold text-foreground">Niche / Industry *</label>
+            <Input placeholder="e.g. SEO Agency" value={niche} onChange={(e) => setNiche(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Country *</label>
+            <label className="text-xs font-semibold text-foreground">Country *</label>
             <Input placeholder="e.g. US" value={country} onChange={(e) => setCountry(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">
-              Job Title <span className="text-muted-foreground/60">(Business only)</span>
+            <label className="text-xs font-semibold text-foreground">
+              Job Title <span className="text-muted-foreground font-normal">(optional)</span>
             </label>
-            <Input
-              placeholder="e.g. CEO"
-              value={jobTitle}
-              onChange={(e) => setJobTitle(e.target.value)}
-              disabled={leadMode === "consumer"}
-            />
+            <Input placeholder="e.g. CEO" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
           </div>
           <div className="flex items-end">
-            <Button onClick={handleFind} disabled={loading} className="w-full gap-2 shadow-md">
+            <Button onClick={handleFind} disabled={loading} className="w-full gap-2 shadow-md bg-indigo-600 hover:bg-indigo-700 text-white">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               {loading ? "Finding..." : "Find Leads"}
             </Button>
           </div>
         </div>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+        <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
           <Checkbox checked={onlyContact} onCheckedChange={(v) => setOnlyContact(!!v)} />
           Show only leads with contact info (email or phone)
         </label>
       </div>
 
-      {/* LOADING */}
+      {/* Loading */}
       {loading && (
         <div className="rounded-2xl bg-card border border-border p-6 space-y-3">
           {[...Array(6)].map((_, i) => (
@@ -190,12 +162,12 @@ export default function FinderPage() {
         </div>
       )}
 
-      {/* RESULTS */}
+      {/* Results */}
       {!loading && filteredLeads.length > 0 && (
-        <div className="rounded-2xl bg-card border border-border p-6 space-y-4">
+        <div className="rounded-2xl bg-card border border-border p-6 space-y-4 shadow-sm">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h2 className="text-lg font-semibold">Results</h2>
+              <h2 className="text-lg font-semibold text-foreground">Results</h2>
               <p className="text-xs text-muted-foreground">
                 {filteredLeads.length} lead{filteredLeads.length === 1 ? "" : "s"} found
               </p>
@@ -204,13 +176,13 @@ export default function FinderPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Filter..."
+                  placeholder="Filter leads..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9 w-48"
+                  className="pl-9 w-52"
                 />
               </div>
-              <ExportMenu data={filteredLeads} filename={`${leadMode}-leads`} />
+              <ExportMenu data={filteredLeads} filename="business-leads" />
               {selectedIds.length > 0 && (
                 <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
                   <DialogTrigger asChild>
@@ -224,12 +196,8 @@ export default function FinderPage() {
                       <DialogDescription>This action cannot be undone.</DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
-                      <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button variant="destructive" onClick={bulkDelete}>
-                        Delete
-                      </Button>
+                      <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+                      <Button variant="destructive" onClick={bulkDelete}>Delete</Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
@@ -247,12 +215,11 @@ export default function FinderPage() {
                       onCheckedChange={toggleSelectAll}
                     />
                   </TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Company</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Phone</TableHead>
-                  {leadMode === "consumer" && <TableHead>Score</TableHead>}
-                  <TableHead className="w-[100px]">Actions</TableHead>
+                  <TableHead className="text-foreground font-semibold">Name</TableHead>
+                  <TableHead className="text-foreground font-semibold">Company</TableHead>
+                  <TableHead className="text-foreground font-semibold">Email</TableHead>
+                  <TableHead className="text-foreground font-semibold">Phone</TableHead>
+                  <TableHead className="w-[100px] text-foreground font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -264,13 +231,13 @@ export default function FinderPage() {
                         onCheckedChange={() => toggleOne(lead._id)}
                       />
                     </TableCell>
-                    <TableCell className="font-medium">{lead.name || "—"}</TableCell>
+                    <TableCell className="font-medium text-foreground">{lead.name || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{lead.company || "—"}</TableCell>
                     <TableCell>
                       {lead.email ? (
                         <button
                           onClick={() => copyText(lead.email, "Email")}
-                          className="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700 hover:underline"
+                          className="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700 hover:underline font-medium"
                         >
                           <Mail className="h-3 w-3" /> {lead.email}
                         </button>
@@ -282,7 +249,7 @@ export default function FinderPage() {
                       {lead.phone ? (
                         <button
                           onClick={() => copyText(lead.phone, "Phone")}
-                          className="inline-flex items-center gap-1 text-sm text-emerald-600 hover:text-emerald-700 hover:underline"
+                          className="inline-flex items-center gap-1 text-sm text-emerald-600 hover:text-emerald-700 hover:underline font-medium"
                         >
                           <Phone className="h-3 w-3" /> {lead.phone}
                         </button>
@@ -290,27 +257,12 @@ export default function FinderPage() {
                         <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
-                    {leadMode === "consumer" && (
-                      <TableCell>
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${
-                            (lead.leadScore || 0) >= 40
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : (lead.leadScore || 0) >= 20
-                              ? "bg-amber-50 text-amber-700 border-amber-200"
-                              : "bg-muted text-muted-foreground border-border"
-                          }`}
-                        >
-                          {lead.leadScore || 0}
-                        </span>
-                      </TableCell>
-                    )}
                     <TableCell>
                       {lead.source && (
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-8 gap-1 text-xs"
+                          className="h-8 gap-1 text-xs border-purple-200 text-purple-700 hover:bg-purple-50"
                           onClick={() => window.open(lead.source, "_blank")}
                         >
                           <ExternalLink className="h-3 w-3" /> Visit
@@ -325,15 +277,16 @@ export default function FinderPage() {
         </div>
       )}
 
-      {/* EMPTY */}
+      {/* Empty */}
       {!loading && filteredLeads.length === 0 && (
-        <div className="rounded-2xl bg-card border border-border p-16 text-center">
-          <div className="inline-flex p-4 rounded-2xl bg-muted mb-4">
-            <Search className="h-8 w-8 text-muted-foreground" />
+        <div className="rounded-2xl bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-100 dark:border-indigo-900/50 p-16 text-center">
+          <div className="inline-flex p-4 rounded-2xl bg-indigo-100 dark:bg-indigo-950/50 mb-4">
+            <Search className="h-8 w-8 text-indigo-600" />
           </div>
-          <h3 className="text-lg font-semibold mb-1">No leads yet</h3>
+          <h3 className="text-lg font-semibold mb-1 text-foreground">No leads yet</h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Enter a niche and country above, then click <span className="font-medium text-foreground">Find Leads</span> to start discovering prospects.
+            Enter a niche and country above, then click{" "}
+            <span className="font-semibold text-foreground">Find Leads</span> to start discovering prospects.
           </p>
         </div>
       )}
