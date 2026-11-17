@@ -9,8 +9,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Trash2, Search, Copy, Phone, MapPin, Star, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import ExportMenu from "@/components/ui/export-menu";
+import DashboardLayout from "@/components/DashboardLayout";
 
-const API = process.env.NEXT_PUBLIC_API_URL;
+const API =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://leadconnect-pro-backend-production-0edb.up.railway.app/api";
 
 export default function LocalInsightsPage() {
   const [niche, setNiche] = useState("");
@@ -39,7 +42,7 @@ export default function LocalInsightsPage() {
       if (data.leads && data.leads.length > 0) {
         setLeads(data.leads);
         setStats(data.stats);
-        toast({ title: `📍 Found ${data.leads.length} local businesses!` });
+        toast({ title: `Found ${data.leads.length} local businesses` });
       } else {
         toast({ title: "No results. Try different search.", variant: "destructive" });
       }
@@ -50,15 +53,18 @@ export default function LocalInsightsPage() {
   };
 
   const filtered = search.trim()
-    ? leads.filter(l =>
-        l.name?.toLowerCase().includes(search.toLowerCase()) ||
-        l.address?.toLowerCase().includes(search.toLowerCase()) ||
-        l.email?.toLowerCase().includes(search.toLowerCase())
+    ? leads.filter(
+        (l) =>
+          l.name?.toLowerCase().includes(search.toLowerCase()) ||
+          l.address?.toLowerCase().includes(search.toLowerCase()) ||
+          l.email?.toLowerCase().includes(search.toLowerCase())
       )
     : leads;
 
-  const toggleAll = (checked: boolean) => setSelectedIds(checked ? filtered.map(l => l._id) : []);
-  const toggleOne = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const toggleAll = (checked: boolean) =>
+    setSelectedIds(checked ? filtered.map((l) => l._id) : []);
+  const toggleOne = (id: string) =>
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const bulkDelete = async () => {
     await fetch(`${API}/leads/bulk-delete`, {
@@ -66,14 +72,14 @@ export default function LocalInsightsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids: selectedIds }),
     });
-    toast({ title: `🗑️ Deleted ${selectedIds.length} leads` });
-    setLeads(prev => prev.filter(l => !selectedIds.includes(l._id)));
+    toast({ title: `Deleted ${selectedIds.length} leads` });
+    setLeads((prev) => prev.filter((l) => !selectedIds.includes(l._id)));
     setSelectedIds([]);
   };
 
   const copyText = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    toast({ title: `📋 ${label} copied!` });
+    toast({ title: `${label} copied` });
   };
 
   const openWhatsApp = (phone: string) => {
@@ -81,26 +87,29 @@ export default function LocalInsightsPage() {
     window.open(`https://wa.me/${clean}`, "_blank");
   };
 
-  return (
+  const content = (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      <h1 className="text-4xl font-bold bg-gradient-to-r from-[#6366F1] to-purple-400 bg-clip-text text-transparent">
-        📍 Local Insights
-      </h1>
-      <p className="text-sm text-gray-400">Search Google Maps for local businesses with contact details.</p>
+      {/* HEADER */}
+      <div className="space-y-1.5">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">📍 Local Insights</h1>
+        <p className="text-sm text-muted-foreground">
+          Find local businesses on Google Maps with verified contact details.
+        </p>
+      </div>
 
-      {/* Search Form */}
-      <div className="glass-card p-6 space-y-4">
+      {/* SEARCH FORM */}
+      <div className="rounded-2xl bg-card border border-border p-6 space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label className="text-xs text-gray-400 mb-1 block">Business Type *</label>
-            <Input placeholder="e.g. Auto Parts Shop" value={niche} onChange={e => setNiche(e.target.value)} className="bg-white/5 border-white/10" />
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Business Type *</label>
+            <Input placeholder="e.g. Auto Parts Shop" value={niche} onChange={(e) => setNiche(e.target.value)} />
           </div>
-          <div>
-            <label className="text-xs text-gray-400 mb-1 block">Location *</label>
-            <Input placeholder="e.g. Lahore, Pakistan" value={location} onChange={e => setLocation(e.target.value)} className="bg-white/5 border-white/10" />
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Location *</label>
+            <Input placeholder="e.g. Lahore, Pakistan" value={location} onChange={(e) => setLocation(e.target.value)} />
           </div>
           <div className="flex items-end">
-            <Button onClick={handleSearch} disabled={loading} className="bg-[#6366F1] hover:bg-[#4f46e5] w-full gap-2">
+            <Button onClick={handleSearch} disabled={loading} className="w-full gap-2 shadow-md">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
               {loading ? "Searching..." : "Search Maps"}
             </Button>
@@ -108,47 +117,72 @@ export default function LocalInsightsPage() {
         </div>
       </div>
 
-      {/* Stats */}
+      {/* STATS */}
       {stats && (
-        <div className="flex flex-wrap gap-4 text-sm text-gray-400">
-          <span>📍 {stats.total} places</span>
-          <span>🌐 {stats.withWebsite} websites</span>
-          <span>📧 {stats.withEmail} emails</span>
-          <span>💾 {stats.saved} saved</span>
+        <div className="rounded-2xl bg-card border border-border p-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <MapPin className="h-4 w-4" /> <span className="font-semibold text-foreground">{stats.total}</span> places
+          </span>
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            🌐 <span className="font-semibold text-foreground">{stats.withWebsite}</span> with website
+          </span>
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            📧 <span className="font-semibold text-foreground">{stats.withEmail}</span> emails
+          </span>
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            💾 <span className="font-semibold text-foreground">{stats.saved}</span> saved
+          </span>
         </div>
       )}
 
-      {/* Loading */}
+      {/* LOADING */}
       {loading && (
-        <div className="glass-card p-6 space-y-3">
-          {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-14 w-full bg-white/5 rounded-lg" />)}
+        <div className="rounded-2xl bg-card border border-border p-6 space-y-3">
+          {[...Array(8)].map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full rounded-lg" />
+          ))}
         </div>
       )}
 
-      {/* Results */}
+      {/* RESULTS */}
       {!loading && leads.length > 0 && (
-        <div className="glass-card p-6 space-y-4">
+        <div className="rounded-2xl bg-card border border-border p-6 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <h2 className="text-xl font-semibold">{leads.length} Businesses</h2>
-            <div className="flex items-center gap-2">
+            <div>
+              <h2 className="text-lg font-semibold">Local Businesses</h2>
+              <p className="text-xs text-muted-foreground">
+                {filtered.length} result{filtered.length === 1 ? "" : "s"}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input placeholder="Filter..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48 bg-white/5 border-white/10" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Filter..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 w-48"
+                />
               </div>
               <ExportMenu data={filtered} filename="local-businesses" />
               {selectedIds.length > 0 && (
-                <Button variant="destructive" size="sm" onClick={bulkDelete}>
-                  <Trash2 className="h-4 w-4 mr-1" /> Delete ({selectedIds.length})
+                <Button variant="destructive" size="sm" onClick={bulkDelete} className="gap-1.5">
+                  <Trash2 className="h-4 w-4" /> Delete ({selectedIds.length})
                 </Button>
               )}
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-lg border border-border">
             <Table>
               <TableHeader>
-                <TableRow className="border-white/5">
-                  <TableHead className="w-10"><Checkbox checked={selectedIds.length === filtered.length && filtered.length > 0} onCheckedChange={toggleAll} /></TableHead>
+                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={selectedIds.length === filtered.length && filtered.length > 0}
+                      onCheckedChange={toggleAll}
+                    />
+                  </TableHead>
                   <TableHead>Business</TableHead>
                   <TableHead>Address</TableHead>
                   <TableHead>Contact</TableHead>
@@ -157,43 +191,71 @@ export default function LocalInsightsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map(lead => (
-                  <TableRow key={lead._id} className="border-white/5 hover:bg-white/[0.03]">
-                    <TableCell><Checkbox checked={selectedIds.includes(lead._id)} onCheckedChange={() => toggleOne(lead._id)} /></TableCell>
+                {filtered.map((lead) => (
+                  <TableRow key={lead._id} className="hover:bg-muted/30">
+                    <TableCell>
+                      <Checkbox checked={selectedIds.includes(lead._id)} onCheckedChange={() => toggleOne(lead._id)} />
+                    </TableCell>
                     <TableCell className="font-medium">{lead.name}</TableCell>
-                    <TableCell className="text-xs text-gray-400 max-w-[200px] truncate">{lead.address || "—"}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[220px] truncate">
+                      {lead.address || "—"}
+                    </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1 text-xs">
                         {lead.phone && (
-                          <button onClick={() => copyText(lead.phone, "Phone")} className="text-green-400 hover:underline text-left">📱 {lead.phone}</button>
+                          <button
+                            onClick={() => copyText(lead.phone, "Phone")}
+                            className="text-emerald-600 hover:text-emerald-700 hover:underline text-left"
+                          >
+                            📱 {lead.phone}
+                          </button>
                         )}
                         {lead.email && (
-                          <button onClick={() => copyText(lead.email, "Email")} className="text-blue-400 hover:underline text-left">📧 {lead.email}</button>
+                          <button
+                            onClick={() => copyText(lead.email, "Email")}
+                            className="text-indigo-600 hover:text-indigo-700 hover:underline text-left"
+                          >
+                            📧 {lead.email}
+                          </button>
                         )}
-                        {!lead.phone && !lead.email && <span className="text-gray-500">—</span>}
+                        {!lead.phone && !lead.email && <span className="text-muted-foreground">—</span>}
                       </div>
                     </TableCell>
                     <TableCell>
                       {lead.rating ? (
                         <div className="flex items-center gap-1">
-                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                          <span className="text-yellow-400 text-sm font-medium">{lead.rating}</span>
+                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                          <span className="text-sm font-medium">{lead.rating}</span>
                           {lead.reviews && (
-                            <span className="text-gray-500 text-xs ml-1">({lead.reviews} reviews)</span>
+                            <span className="text-muted-foreground text-xs ml-0.5">({lead.reviews})</span>
                           )}
                         </div>
-                      ) : "—"}
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         {lead.phone && (
-                          <Button size="sm" variant="outline" className="h-8 border-green-500/30 text-green-400 text-xs" onClick={() => openWhatsApp(lead.phone)}>
-                            <Phone className="h-3 w-3" />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 w-8 p-0 text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                            onClick={() => openWhatsApp(lead.phone)}
+                            title="Open WhatsApp"
+                          >
+                            <Phone className="h-3.5 w-3.5" />
                           </Button>
                         )}
                         {lead.email && (
-                          <Button size="sm" variant="outline" className="h-8 border-blue-500/30 text-blue-400 text-xs" onClick={() => copyText(lead.email, "Email")}>
-                            <Copy className="h-3 w-3" />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 w-8 p-0 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                            onClick={() => copyText(lead.email, "Email")}
+                            title="Copy email"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
                           </Button>
                         )}
                       </div>
@@ -206,13 +268,20 @@ export default function LocalInsightsPage() {
         </div>
       )}
 
+      {/* EMPTY */}
       {!loading && leads.length === 0 && (
-        <div className="glass-card p-12 text-center">
-          <MapPin className="h-12 w-12 mx-auto text-gray-600 mb-4" />
-          <h3 className="text-lg font-medium text-gray-400 mb-2">No local businesses yet</h3>
-          <p className="text-sm text-gray-500">Enter a business type and location, then click Search Maps.</p>
+        <div className="rounded-2xl bg-card border border-border p-16 text-center">
+          <div className="inline-flex p-4 rounded-2xl bg-muted mb-4">
+            <MapPin className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <h3 className="text-lg font-semibold mb-1">No local businesses yet</h3>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            Enter a business type and location above, then click <span className="font-medium text-foreground">Search Maps</span> to discover local prospects.
+          </p>
         </div>
       )}
     </motion.div>
   );
+
+  return <DashboardLayout>{content}</DashboardLayout>;
 }
