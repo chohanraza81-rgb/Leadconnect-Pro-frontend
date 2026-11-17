@@ -15,11 +15,19 @@ function getDisplayName(country: string) {
 }
 
 export default function CountryBarChart({ data }: { data: { country: string; count: number }[] }) {
-  const chartData = (data || [])
+  // ✅ Deduplicate: UK + GB dono ko merge karke ek bar banao
+  const merged = new Map<string, number>();
+  (data || [])
     .filter((d) => d.count > 0)
+    .forEach((d) => {
+      const name = getDisplayName(d.country);
+      merged.set(name, (merged.get(name) || 0) + d.count);
+    });
+
+  const chartData = Array.from(merged.entries())
+    .map(([country, count]) => ({ country, count }))
     .sort((a, b) => b.count - a.count)
-    .slice(0, 10)
-    .map((d) => ({ country: getDisplayName(d.country), count: d.count }));
+    .slice(0, 10);
 
   return (
     <Card className="overflow-hidden">
@@ -49,14 +57,15 @@ export default function CountryBarChart({ data }: { data: { country: string; cou
                 stroke="hsl(var(--muted-foreground))"
                 tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
                 interval={0}
-                angle={-15}
-                textAnchor="end"
-                height={50}
+                tickLine={false}
+                axisLine={{ stroke: "hsl(var(--border))" }}
               />
               <YAxis
                 stroke="hsl(var(--muted-foreground))"
                 tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
                 allowDecimals={false}
+                tickLine={false}
+                axisLine={{ stroke: "hsl(var(--border))" }}
               />
               <Tooltip
                 cursor={{ fill: "hsl(var(--primary) / 0.08)" }}
@@ -71,7 +80,12 @@ export default function CountryBarChart({ data }: { data: { country: string; cou
                 itemStyle={{ color: "hsl(var(--muted-foreground))" }}
                 formatter={(value: number) => [`${value} leads`, "Count"]}
               />
-              <Bar dataKey="count" fill="url(#barGradient)" radius={[6, 6, 0, 0]} />
+              <Bar
+                dataKey="count"
+                fill="url(#barGradient)"
+                radius={[6, 6, 0, 0]}
+                isAnimationActive={false}
+              />
             </BarChart>
           </ResponsiveContainer>
         )}
