@@ -1,11 +1,10 @@
-// app/local-insights/page.tsx
 "use client";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Trash2, Search, Copy, Phone, MapPin, Star, Loader2, Store, Globe, Mail, TrendingUp } from "lucide-react";
 import { motion } from "framer-motion";
@@ -28,7 +27,7 @@ export default function LocalInsightsPage() {
 
   const handleSearch = async () => {
     if (!niche.trim() || !location.trim()) {
-      toast({ title: "Enter niche and location", variant: "destructive" });
+      toast.error("Enter both business type and location");
       return;
     }
     setLoading(true);
@@ -44,12 +43,12 @@ export default function LocalInsightsPage() {
       if (data.leads && data.leads.length > 0) {
         setLeads(data.leads);
         setStats(data.stats);
-        toast({ title: `Found ${data.leads.length} local businesses` });
+        toast.success(`Found ${data.leads.length} local businesses`);
       } else {
-        toast({ title: "No results. Try different search.", variant: "destructive" });
+        toast.error("No results found. Try a different search.");
       }
     } catch {
-      toast({ title: "Search failed", variant: "destructive" });
+      toast.error("Search failed. Please try again.");
     }
     setLoading(false);
   };
@@ -69,24 +68,29 @@ export default function LocalInsightsPage() {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const bulkDelete = async () => {
-    await fetch(`${API}/leads/bulk-delete`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: selectedIds }),
-    });
-    toast({ title: `Deleted ${selectedIds.length} leads` });
-    setLeads((prev) => prev.filter((l) => !selectedIds.includes(l._id)));
-    setSelectedIds([]);
+    try {
+      await fetch(`${API}/leads/bulk-delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+      toast.success(`Deleted ${selectedIds.length} leads`);
+      setLeads((prev) => prev.filter((l) => !selectedIds.includes(l._id)));
+      setSelectedIds([]);
+    } catch {
+      toast.error("Delete failed. Please try again.");
+    }
   };
 
   const copyText = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    toast({ title: `${label} copied` });
+    toast.success(`${label} copied to clipboard`);
   };
 
   const openWhatsApp = (phone: string) => {
     const clean = phone.replace(/[^0-9+]/g, "");
     window.open(`https://wa.me/${clean}`, "_blank");
+    toast.success("Opening WhatsApp");
   };
 
   const content = (
@@ -97,7 +101,7 @@ export default function LocalInsightsPage() {
         icon={<MapPin className="h-6 w-6" />}
       />
 
-      {/* Search Form — colored */}
+      {/* Search Form */}
       <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-100 dark:border-emerald-900/50 p-6 space-y-4">
         <div className="flex items-center gap-2">
           <Store className="h-5 w-5 text-emerald-600" />
@@ -121,7 +125,7 @@ export default function LocalInsightsPage() {
         </div>
       </div>
 
-      {/* Stats — colored cards */}
+      {/* Stats */}
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="rounded-xl bg-card border border-border p-4">
@@ -224,7 +228,7 @@ export default function LocalInsightsPage() {
                     <TableCell>
                       <Checkbox checked={selectedIds.includes(lead._id)} onCheckedChange={() => toggleOne(lead._id)} />
                     </TableCell>
-                    <TableCell className="font-medium text-foreground">{lead.name}</TableCell>
+                    <TableCell className="font-medium text-foreground max-w-[220px] truncate">{lead.name}</TableCell>
                     <TableCell className="text-xs text-muted-foreground max-w-[220px] truncate">
                       {lead.address || "—"}
                     </TableCell>
@@ -233,7 +237,7 @@ export default function LocalInsightsPage() {
                         {lead.phone && (
                           <button
                             onClick={() => copyText(lead.phone, "Phone")}
-                            className="text-emerald-600 hover:text-emerald-700 hover:underline text-left font-medium"
+                            className="text-emerald-600 hover:text-emerald-700 hover:underline text-left font-medium whitespace-nowrap"
                           >
                             📱 {lead.phone}
                           </button>
@@ -241,7 +245,7 @@ export default function LocalInsightsPage() {
                         {lead.email && (
                           <button
                             onClick={() => copyText(lead.email, "Email")}
-                            className="text-indigo-600 hover:text-indigo-700 hover:underline text-left font-medium"
+                            className="text-indigo-600 hover:text-indigo-700 hover:underline text-left font-medium max-w-[200px] truncate"
                           >
                             📧 {lead.email}
                           </button>
