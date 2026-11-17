@@ -4,10 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Search, Copy, Loader2, ExternalLink, Mail, Phone, Globe, Target } from "lucide-react";
+import { Trash2, Search, Copy, Loader2, ExternalLink, Mail, Phone, Globe, Target, Building2, User } from "lucide-react";
 import { motion } from "framer-motion";
 import ExportMenu from "@/components/ui/export-menu";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -16,6 +16,36 @@ import PageHeader from "@/components/PageHeader";
 const API =
   process.env.NEXT_PUBLIC_API_URL ||
   "https://leadconnect-pro-backend-production-0edb.up.railway.app/api";
+
+/* ─── CLEANUP HELPERS ─── */
+const PLACEHOLDERS = ["contact", "—", "-", "n/a", "none", ""];
+
+function isPlaceholder(val?: string) {
+  return !val || PLACEHOLDERS.includes(val.trim().toLowerCase());
+}
+
+function getBusinessName(lead: any): string {
+  const name = (lead.name || "").trim();
+  const company = (lead.company || "").trim();
+
+  // If name is a placeholder ("Contact"), use company
+  if (isPlaceholder(name) && !isPlaceholder(company)) return company;
+  // If company missing, use name
+  if (!isPlaceholder(name) && isPlaceholder(company)) return name;
+  // If both same, use one
+  if (name === company) return name;
+  // Both different — prefer company (real business name usually)
+  if (!isPlaceholder(company)) return company;
+  return name || "—";
+}
+
+function getContactPerson(lead: any): string | null {
+  const name = (lead.name || "").trim();
+  const company = (lead.company || "").trim();
+  // Only show as contact if it's a real name AND different from company
+  if (!isPlaceholder(name) && name !== company) return name;
+  return null;
+}
 
 export default function FinderPage() {
   const [niche, setNiche] = useState("");
@@ -30,7 +60,7 @@ export default function FinderPage() {
 
   const handleFind = async () => {
     if (!niche.trim() || !country.trim()) {
-      toast({ title: "Please enter niche and country", variant: "destructive" });
+      toast.error("Please enter niche and country");
       return;
     }
     setLoading(true);
@@ -44,17 +74,13 @@ export default function FinderPage() {
       const data = await res.json();
       if (data.leads && data.leads.length > 0) {
         setLeads(data.leads);
-        toast({ title: `Found ${data.leads.length} business leads` });
+        toast.success(`Found ${data.leads.length} business leads`);
       } else {
-        toast({ title: "No leads found. Try different terms.", variant: "destructive" });
+        toast.error("No leads found. Try different terms.");
       }
     } catch (e) {
       console.error("Find error:", e);
-      toast({
-        title: "Connection failed",
-        description: "Check your internet or backend URL.",
-        variant: "destructive",
-      });
+      toast.error("Connection failed. Check your internet or backend URL.");
     }
     setLoading(false);
   };
@@ -82,20 +108,24 @@ export default function FinderPage() {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const bulkDelete = async () => {
-    await fetch(`${API}/leads/bulk-delete`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: selectedIds }),
-    });
-    toast({ title: `Deleted ${selectedIds.length} leads` });
-    setLeads((prev) => prev.filter((l) => !selectedIds.includes(l._id)));
-    setSelectedIds([]);
-    setDeleteOpen(false);
+    try {
+      await fetch(`${API}/leads/bulk-delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+      toast.success(`Deleted ${selectedIds.length} leads`);
+      setLeads((prev) => prev.filter((l) => !selectedIds.includes(l._id)));
+      setSelectedIds([]);
+      setDeleteOpen(false);
+    } catch {
+      toast.error("Delete failed. Please try again.");
+    }
   };
 
   const copyText = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    toast({ title: `${label} copied` });
+    toast.success(`${label} copied to clipboard`);
   };
 
   const content = (
@@ -106,9 +136,9 @@ export default function FinderPage() {
         icon={<Search className="h-6 w-6" />}
       />
 
-      {/* Info banner (replaces mode toggle) */}
+      {/* Info banner */}
       <div className="rounded-2xl bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-100 dark:border-indigo-900/50 p-4 flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-950/50">
+        <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-950/50 shrink-0">
           <Target className="h-5 w-5 text-indigo-600" />
         </div>
         <div>
@@ -215,62 +245,90 @@ export default function FinderPage() {
                       onCheckedChange={toggleSelectAll}
                     />
                   </TableHead>
-                  <TableHead className="text-foreground font-semibold">Name</TableHead>
-                  <TableHead className="text-foreground font-semibold">Company</TableHead>
+                  <TableHead className="text-foreground font-semibold">Business</TableHead>
+                  <TableHead className="text-foreground font-semibold">Contact Person</TableHead>
                   <TableHead className="text-foreground font-semibold">Email</TableHead>
                   <TableHead className="text-foreground font-semibold">Phone</TableHead>
                   <TableHead className="w-[100px] text-foreground font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLeads.map((lead) => (
-                  <TableRow key={lead._id} className="hover:bg-muted/30">
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedIds.includes(lead._id)}
-                        onCheckedChange={() => toggleOne(lead._id)}
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium text-foreground">{lead.name || "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">{lead.company || "—"}</TableCell>
-                    <TableCell>
-                      {lead.email ? (
-                        <button
-                          onClick={() => copyText(lead.email, "Email")}
-                          className="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700 hover:underline font-medium"
-                        >
-                          <Mail className="h-3 w-3" /> {lead.email}
-                        </button>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {lead.phone ? (
-                        <button
-                          onClick={() => copyText(lead.phone, "Phone")}
-                          className="inline-flex items-center gap-1 text-sm text-emerald-600 hover:text-emerald-700 hover:underline font-medium"
-                        >
-                          <Phone className="h-3 w-3" /> {lead.phone}
-                        </button>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {lead.source && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 gap-1 text-xs border-purple-200 text-purple-700 hover:bg-purple-50"
-                          onClick={() => window.open(lead.source, "_blank")}
-                        >
-                          <ExternalLink className="h-3 w-3" /> Visit
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredLeads.map((lead) => {
+                  const businessName = getBusinessName(lead);
+                  const contactPerson = getContactPerson(lead);
+                  return (
+                    <TableRow key={lead._id} className="hover:bg-muted/30">
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.includes(lead._id)}
+                          onCheckedChange={() => toggleOne(lead._id)}
+                        />
+                      </TableCell>
+                      {/* Business Name */}
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 rounded-md bg-indigo-100 dark:bg-indigo-950/50 shrink-0">
+                            <Building2 className="h-3.5 w-3.5 text-indigo-600" />
+                          </div>
+                          <span className="font-semibold text-foreground max-w-[220px] truncate">
+                            {businessName}
+                          </span>
+                        </div>
+                      </TableCell>
+                      {/* Contact Person */}
+                      <TableCell>
+                        {contactPerson ? (
+                          <div className="flex items-center gap-1.5 text-sm text-foreground">
+                            <User className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <span className="truncate max-w-[150px]">{contactPerson}</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </TableCell>
+                      {/* Email */}
+                      <TableCell>
+                        {lead.email ? (
+                          <button
+                            onClick={() => copyText(lead.email, "Email")}
+                            className="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700 hover:underline font-medium max-w-[200px]"
+                          >
+                            <Mail className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{lead.email}</span>
+                          </button>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </TableCell>
+                      {/* Phone */}
+                      <TableCell>
+                        {lead.phone ? (
+                          <button
+                            onClick={() => copyText(lead.phone, "Phone")}
+                            className="inline-flex items-center gap-1 text-sm text-emerald-600 hover:text-emerald-700 hover:underline font-medium whitespace-nowrap"
+                          >
+                            <Phone className="h-3 w-3 shrink-0" /> {lead.phone}
+                          </button>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </TableCell>
+                      {/* Actions */}
+                      <TableCell>
+                        {lead.source && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 gap-1 text-xs border-purple-200 text-purple-700 hover:bg-purple-50"
+                            onClick={() => window.open(lead.source, "_blank")}
+                          >
+                            <ExternalLink className="h-3 w-3" /> Visit
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
