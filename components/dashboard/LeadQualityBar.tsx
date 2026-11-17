@@ -1,22 +1,27 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle2, XCircle, AlertCircle, TrendingUp } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Mail, Phone, ShieldCheck, TrendingUp } from "lucide-react";
 import { motion } from "framer-motion";
 
-const API = process.env.NEXT_PUBLIC_API_URL;
+const API =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://leadconnect-pro-backend-production-0edb.up.railway.app/api";
 
 export default function LeadQualityBar() {
   const [stats, setStats] = useState({ total: 0, withEmail: 0, withPhone: 0, withBoth: 0 });
 
   useEffect(() => {
-    fetch(`${API}/leads`).then(r => r.json()).then(data => {
-      const total = data.length;
-      const withEmail = data.filter((l: any) => l.email).length;
-      const withPhone = data.filter((l: any) => l.phone).length;
-      const withBoth = data.filter((l: any) => l.email && l.phone).length;
-      setStats({ total, withEmail, withPhone, withBoth });
-    }).catch(() => {});
+    fetch(`${API}/leads`)
+      .then((r) => r.json())
+      .then((data) => {
+        const total = data.length;
+        const withEmail = data.filter((l: any) => l.email).length;
+        const withPhone = data.filter((l: any) => l.phone).length;
+        const withBoth = data.filter((l: any) => l.email && l.phone).length;
+        setStats({ total, withEmail, withPhone, withBoth });
+      })
+      .catch(() => {});
   }, []);
 
   if (stats.total === 0) return null;
@@ -25,37 +30,71 @@ export default function LeadQualityBar() {
   const phonePercent = Math.round((stats.withPhone / stats.total) * 100);
   const bothPercent = Math.round((stats.withBoth / stats.total) * 100);
 
+  const items = [
+    {
+      label: "Have Email",
+      value: emailPercent,
+      icon: Mail,
+      barColor: "bg-indigo-500",
+      iconColor: "text-indigo-600",
+      bg: "bg-indigo-50 dark:bg-indigo-950/40",
+    },
+    {
+      label: "Have Phone",
+      value: phonePercent,
+      icon: Phone,
+      barColor: "bg-emerald-500",
+      iconColor: "text-emerald-600",
+      bg: "bg-emerald-50 dark:bg-emerald-950/40",
+    },
+    {
+      label: "Have Both",
+      value: bothPercent,
+      icon: ShieldCheck,
+      barColor: "bg-amber-500",
+      iconColor: "text-amber-600",
+      bg: "bg-amber-50 dark:bg-amber-950/40",
+    },
+  ];
+
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-      <Card className="bg-black/40 backdrop-blur-xl border-white/10">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="h-5 w-5 text-[#6366F1]" />
-            <h3 className="text-sm font-semibold">Lead Quality Score</h3>
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 text-blue-400">
-                <CheckCircle2 className="h-4 w-4" />
-                <span className="text-2xl font-bold">{emailPercent}%</span>
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.1 }}
+    >
+      <Card className="overflow-hidden h-full">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg flex items-center gap-2 font-semibold">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            Contact Coverage
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            How complete is your lead contact data
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-4">
+          {items.map((item) => (
+            <div key={item.label} className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`p-1.5 rounded-md ${item.bg}`}>
+                    <item.icon className={`h-3.5 w-3.5 ${item.iconColor}`} />
+                  </div>
+                  <span className="text-sm font-medium">{item.label}</span>
+                </div>
+                <span className="text-sm font-bold tabular-nums">{item.value}%</span>
               </div>
-              <p className="text-xs text-gray-400 mt-1">Have Email</p>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 text-green-400">
-                <CheckCircle2 className="h-4 w-4" />
-                <span className="text-2xl font-bold">{phonePercent}%</span>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${item.value}%` }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                  className={`h-full rounded-full ${item.barColor}`}
+                />
               </div>
-              <p className="text-xs text-gray-400 mt-1">Have Phone</p>
             </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 text-purple-400">
-                <AlertCircle className="h-4 w-4" />
-                <span className="text-2xl font-bold">{bothPercent}%</span>
-              </div>
-              <p className="text-xs text-gray-400 mt-1">Have Both</p>
-            </div>
-          </div>
+          ))}
         </CardContent>
       </Card>
     </motion.div>
