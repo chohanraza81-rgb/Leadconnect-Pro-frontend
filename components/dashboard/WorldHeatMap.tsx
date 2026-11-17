@@ -6,35 +6,12 @@ import { useState } from "react";
 
 const geoUrl = "/world-110m.json";
 
-// Map country names to numeric IDs used by TopoJSON
 const countryToNumericId: Record<string, string> = {
-  US: "840",
-  USA: "840",
-  UK: "826",
-  GB: "826",
-  CA: "124",
-  Canada: "124",
-  AU: "036",
-  Australia: "036",
-  DE: "276",
-  Germany: "276",
-  SG: "702",
-  Singapore: "702",
-  SA: "682",
-  "Saudi Arabia": "682",
-  AE: "784",
-  UAE: "784",
-  PK: "586",
-  Pakistan: "586",
-  IN: "356",
-  India: "356",
-  TR: "792",
-  Turkey: "792",
-  MY: "458",
-  Malaysia: "458",
-  NZ: "554",
-  "New Zealand": "554",
-  ZA: "710",
+  US: "840", USA: "840", UK: "826", GB: "826", CA: "124", Canada: "124",
+  AU: "036", Australia: "036", DE: "276", Germany: "276", SG: "702",
+  Singapore: "702", SA: "682", "Saudi Arabia": "682", AE: "784", UAE: "784",
+  PK: "586", Pakistan: "586", IN: "356", India: "356", TR: "792", Turkey: "792",
+  MY: "458", Malaysia: "458", NZ: "554", "New Zealand": "554", ZA: "710",
   "South Africa": "710",
 };
 
@@ -53,35 +30,35 @@ export default function WorldHeatMap({ data }: { data: Record<string, number> })
     if (id) numericData[id] = (numericData[id] || 0) + count;
   });
 
-  const values = Object.values(numericData).filter(v => v > 0);
+  const values = Object.values(numericData).filter((v) => v > 0);
   const maxVal = Math.max(...values, 1);
+
+  // Light theme map colors
   const colorScale = scaleLinear<string>()
     .domain([0, maxVal])
-    .range(["#1a1a2e", "#6366F1"]);
+    .range(["#e0e7ff", "#4f46e5"]); // indigo-100 → indigo-600
 
   return (
-    <Card className="bg-black/40 backdrop-blur-xl border-white/10 hover:border-[#6366F1]/30 transition-all">
+    <Card className="overflow-hidden">
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg flex items-center gap-2">
+        <CardTitle className="text-lg flex items-center gap-2 font-semibold">
           🌍 Global Lead Distribution
         </CardTitle>
+        <p className="text-xs text-muted-foreground">Where your leads are coming from</p>
       </CardHeader>
       <CardContent>
         <div style={{ position: "relative", width: "100%", maxWidth: 800, margin: "0 auto" }}>
-          <ComposableMap
-            projectionConfig={{ scale: 140 }}
-            style={{ width: "100%", height: "auto" }}
-          >
+          <ComposableMap projectionConfig={{ scale: 140 }} style={{ width: "100%", height: "auto" }}>
             <Geographies geography={geoUrl}>
               {({ geographies }) =>
-                geographies.map(geo => {
+                geographies.map((geo) => {
                   const value = numericData[geo.id] || 0;
                   return (
                     <Geography
                       key={geo.rsmKey}
                       geography={geo}
-                      fill={value > 0 ? colorScale(value) : "#1a1a2e"}
-                      stroke="#333"
+                      fill={value > 0 ? colorScale(value) : "hsl(var(--muted))"}
+                      stroke="hsl(var(--border))"
                       strokeWidth={0.5}
                       onMouseEnter={(evt) => {
                         if (value > 0) {
@@ -96,7 +73,7 @@ export default function WorldHeatMap({ data }: { data: Record<string, number> })
                       style={{
                         default: { outline: "none", transition: "fill 0.3s" },
                         hover: { fill: "#818cf8", outline: "none", cursor: "pointer" },
-                        pressed: { fill: "#6366F1", outline: "none" },
+                        pressed: { fill: "#4f46e5", outline: "none" },
                       }}
                     />
                   );
@@ -110,26 +87,29 @@ export default function WorldHeatMap({ data }: { data: Record<string, number> })
                 position: "fixed",
                 top: tooltip.y + 10,
                 left: tooltip.x + 10,
-                background: "#111",
-                color: "#fff",
+                background: "hsl(var(--popover))",
+                color: "hsl(var(--popover-foreground))",
                 padding: "6px 12px",
                 borderRadius: 8,
                 fontSize: 13,
-                border: "1px solid #333",
+                border: "1px solid hsl(var(--border))",
                 pointerEvents: "none",
                 zIndex: 9999,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
               }}
             >
               {tooltip.text}
             </div>
           )}
         </div>
-        <div className="flex justify-center gap-4 mt-4 text-xs text-gray-400">
-          <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded" style={{ background: "#1a1a2e" }} /> 0
+        <div className="flex justify-center gap-4 mt-4 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded border border-border" style={{ background: "hsl(var(--muted))" }} />
+            0 leads
           </span>
-          <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded" style={{ background: "#6366F1" }} /> {maxVal}
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded" style={{ background: "#4f46e5" }} />
+            {maxVal} leads
           </span>
         </div>
       </CardContent>
