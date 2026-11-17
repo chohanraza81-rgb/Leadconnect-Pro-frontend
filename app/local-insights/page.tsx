@@ -1,3 +1,4 @@
+// app/local-insights/page.tsx
 "use client";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
@@ -6,10 +7,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Search, Copy, Phone, MapPin, Star, Loader2 } from "lucide-react";
+import { Trash2, Search, Copy, Phone, MapPin, Star, Loader2, Store, Globe, Mail, TrendingUp } from "lucide-react";
 import { motion } from "framer-motion";
 import ExportMenu from "@/components/ui/export-menu";
 import DashboardLayout from "@/components/DashboardLayout";
+import PageHeader from "@/components/PageHeader";
 
 const API =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -89,27 +91,29 @@ export default function LocalInsightsPage() {
 
   const content = (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      {/* HEADER */}
-      <div className="space-y-1.5">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">📍 Local Insights</h1>
-        <p className="text-sm text-muted-foreground">
-          Find local businesses on Google Maps with verified contact details.
-        </p>
-      </div>
+      <PageHeader
+        title="Local Insights"
+        description="Find local businesses on Google Maps with verified contact details."
+        icon={<MapPin className="h-6 w-6" />}
+      />
 
-      {/* SEARCH FORM */}
-      <div className="rounded-2xl bg-card border border-border p-6 space-y-4">
+      {/* Search Form — colored */}
+      <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-100 dark:border-emerald-900/50 p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Store className="h-5 w-5 text-emerald-600" />
+          <h2 className="font-semibold text-foreground">Search local businesses</h2>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Business Type *</label>
+            <label className="text-xs font-semibold text-foreground">Business Type *</label>
             <Input placeholder="e.g. Auto Parts Shop" value={niche} onChange={(e) => setNiche(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Location *</label>
+            <label className="text-xs font-semibold text-foreground">Location *</label>
             <Input placeholder="e.g. Lahore, Pakistan" value={location} onChange={(e) => setLocation(e.target.value)} />
           </div>
           <div className="flex items-end">
-            <Button onClick={handleSearch} disabled={loading} className="w-full gap-2 shadow-md">
+            <Button onClick={handleSearch} disabled={loading} className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
               {loading ? "Searching..." : "Search Maps"}
             </Button>
@@ -117,25 +121,49 @@ export default function LocalInsightsPage() {
         </div>
       </div>
 
-      {/* STATS */}
+      {/* Stats — colored cards */}
       {stats && (
-        <div className="rounded-2xl bg-card border border-border p-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-          <span className="flex items-center gap-1.5 text-muted-foreground">
-            <MapPin className="h-4 w-4" /> <span className="font-semibold text-foreground">{stats.total}</span> places
-          </span>
-          <span className="flex items-center gap-1.5 text-muted-foreground">
-            🌐 <span className="font-semibold text-foreground">{stats.withWebsite}</span> with website
-          </span>
-          <span className="flex items-center gap-1.5 text-muted-foreground">
-            📧 <span className="font-semibold text-foreground">{stats.withEmail}</span> emails
-          </span>
-          <span className="flex items-center gap-1.5 text-muted-foreground">
-            💾 <span className="font-semibold text-foreground">{stats.saved}</span> saved
-          </span>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="rounded-xl bg-card border border-border p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="p-1.5 rounded-md bg-emerald-100 dark:bg-emerald-950/50">
+                <MapPin className="h-3.5 w-3.5 text-emerald-600" />
+              </div>
+              <span className="text-xs text-muted-foreground font-medium">Places</span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{stats.total}</p>
+          </div>
+          <div className="rounded-xl bg-card border border-border p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="p-1.5 rounded-md bg-indigo-100 dark:bg-indigo-950/50">
+                <Globe className="h-3.5 w-3.5 text-indigo-600" />
+              </div>
+              <span className="text-xs text-muted-foreground font-medium">Websites</span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{stats.withWebsite}</p>
+          </div>
+          <div className="rounded-xl bg-card border border-border p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="p-1.5 rounded-md bg-purple-100 dark:bg-purple-950/50">
+                <Mail className="h-3.5 w-3.5 text-purple-600" />
+              </div>
+              <span className="text-xs text-muted-foreground font-medium">Emails</span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{stats.withEmail}</p>
+          </div>
+          <div className="rounded-xl bg-card border border-border p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-950/50">
+                <TrendingUp className="h-3.5 w-3.5 text-amber-600" />
+              </div>
+              <span className="text-xs text-muted-foreground font-medium">Saved</span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{stats.saved}</p>
+          </div>
         </div>
       )}
 
-      {/* LOADING */}
+      {/* Loading */}
       {loading && (
         <div className="rounded-2xl bg-card border border-border p-6 space-y-3">
           {[...Array(8)].map((_, i) => (
@@ -144,12 +172,12 @@ export default function LocalInsightsPage() {
         </div>
       )}
 
-      {/* RESULTS */}
+      {/* Results */}
       {!loading && leads.length > 0 && (
-        <div className="rounded-2xl bg-card border border-border p-6 space-y-4">
+        <div className="rounded-2xl bg-card border border-border p-6 space-y-4 shadow-sm">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h2 className="text-lg font-semibold">Local Businesses</h2>
+              <h2 className="text-lg font-semibold text-foreground">Local Businesses</h2>
               <p className="text-xs text-muted-foreground">
                 {filtered.length} result{filtered.length === 1 ? "" : "s"}
               </p>
@@ -158,10 +186,10 @@ export default function LocalInsightsPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Filter..."
+                  placeholder="Filter businesses..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9 w-48"
+                  className="pl-9 w-52"
                 />
               </div>
               <ExportMenu data={filtered} filename="local-businesses" />
@@ -183,11 +211,11 @@ export default function LocalInsightsPage() {
                       onCheckedChange={toggleAll}
                     />
                   </TableHead>
-                  <TableHead>Business</TableHead>
-                  <TableHead>Address</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Rating</TableHead>
-                  <TableHead className="w-[100px]">Actions</TableHead>
+                  <TableHead className="text-foreground font-semibold">Business</TableHead>
+                  <TableHead className="text-foreground font-semibold">Address</TableHead>
+                  <TableHead className="text-foreground font-semibold">Contact</TableHead>
+                  <TableHead className="text-foreground font-semibold">Rating</TableHead>
+                  <TableHead className="w-[100px] text-foreground font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -196,7 +224,7 @@ export default function LocalInsightsPage() {
                     <TableCell>
                       <Checkbox checked={selectedIds.includes(lead._id)} onCheckedChange={() => toggleOne(lead._id)} />
                     </TableCell>
-                    <TableCell className="font-medium">{lead.name}</TableCell>
+                    <TableCell className="font-medium text-foreground">{lead.name}</TableCell>
                     <TableCell className="text-xs text-muted-foreground max-w-[220px] truncate">
                       {lead.address || "—"}
                     </TableCell>
@@ -205,7 +233,7 @@ export default function LocalInsightsPage() {
                         {lead.phone && (
                           <button
                             onClick={() => copyText(lead.phone, "Phone")}
-                            className="text-emerald-600 hover:text-emerald-700 hover:underline text-left"
+                            className="text-emerald-600 hover:text-emerald-700 hover:underline text-left font-medium"
                           >
                             📱 {lead.phone}
                           </button>
@@ -213,7 +241,7 @@ export default function LocalInsightsPage() {
                         {lead.email && (
                           <button
                             onClick={() => copyText(lead.email, "Email")}
-                            className="text-indigo-600 hover:text-indigo-700 hover:underline text-left"
+                            className="text-indigo-600 hover:text-indigo-700 hover:underline text-left font-medium"
                           >
                             📧 {lead.email}
                           </button>
@@ -225,7 +253,7 @@ export default function LocalInsightsPage() {
                       {lead.rating ? (
                         <div className="flex items-center gap-1">
                           <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                          <span className="text-sm font-medium">{lead.rating}</span>
+                          <span className="text-sm font-semibold text-foreground">{lead.rating}</span>
                           {lead.reviews && (
                             <span className="text-muted-foreground text-xs ml-0.5">({lead.reviews})</span>
                           )}
@@ -268,15 +296,16 @@ export default function LocalInsightsPage() {
         </div>
       )}
 
-      {/* EMPTY */}
+      {/* Empty */}
       {!loading && leads.length === 0 && (
-        <div className="rounded-2xl bg-card border border-border p-16 text-center">
-          <div className="inline-flex p-4 rounded-2xl bg-muted mb-4">
-            <MapPin className="h-8 w-8 text-muted-foreground" />
+        <div className="rounded-2xl bg-gradient-to-br from-emerald-50/50 to-teal-50/50 dark:from-emerald-950/20 dark:to-teal-950/20 border border-emerald-100 dark:border-emerald-900/50 p-16 text-center">
+          <div className="inline-flex p-4 rounded-2xl bg-emerald-100 dark:bg-emerald-950/50 mb-4">
+            <MapPin className="h-8 w-8 text-emerald-600" />
           </div>
-          <h3 className="text-lg font-semibold mb-1">No local businesses yet</h3>
+          <h3 className="text-lg font-semibold mb-1 text-foreground">No local businesses yet</h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Enter a business type and location above, then click <span className="font-medium text-foreground">Search Maps</span> to discover local prospects.
+            Enter a business type and location above, then click{" "}
+            <span className="font-semibold text-foreground">Search Maps</span> to discover local prospects.
           </p>
         </div>
       )}
