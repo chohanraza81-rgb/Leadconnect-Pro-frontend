@@ -2,7 +2,17 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Users, Mail, Sparkles, Search, MapPin, TrendingUp, ArrowRight } from "lucide-react";
+import {
+  Users,
+  Mail,
+  Sparkles,
+  Search,
+  MapPin,
+  TrendingUp,
+  ArrowRight,
+  Activity,
+  Zap,
+} from "lucide-react";
 import CountryBarChart from "@/components/dashboard/CountryBarChart";
 import WorldHeatMap from "@/components/dashboard/WorldHeatMap";
 import StatusIndicator from "@/components/dashboard/StatusIndicator";
@@ -27,41 +37,38 @@ interface StatCardProps {
   icon: React.ElementType;
   label: string;
   value: string | number;
-  subtext?: string;
+  subtext: string;
   gradient: string;
-  trend?: string;
 }
 
-function StatCard({ icon: Icon, label, value, subtext, gradient, trend }: StatCardProps) {
+function StatCard({ icon: Icon, label, value, subtext, gradient }: StatCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       className="relative overflow-hidden rounded-2xl bg-card border border-border p-6 hover:shadow-lg hover:-translate-y-0.5 transition-all"
     >
-      <div className={`absolute -right-6 -top-6 w-28 h-28 rounded-full opacity-10 bg-gradient-to-br ${gradient}`} />
+      <div
+        className={`absolute -right-6 -top-6 w-28 h-28 rounded-full opacity-10 bg-gradient-to-br ${gradient}`}
+      />
       <div className="flex items-start justify-between relative">
         <div className="space-y-1">
           <p className="text-sm font-medium text-muted-foreground">{label}</p>
           <p className="text-3xl font-bold tracking-tight text-foreground">{value}</p>
-          {subtext && <p className="text-xs text-muted-foreground pt-1">{subtext}</p>}
+          <p className="text-xs text-muted-foreground pt-1">{subtext}</p>
         </div>
         <div className={`p-3 rounded-xl bg-gradient-to-br ${gradient} shadow-lg`}>
           <Icon className="h-5 w-5 text-white" />
         </div>
       </div>
-      {trend && (
-        <div className="mt-3 flex items-center gap-1 text-xs font-medium text-emerald-600">
-          <TrendingUp className="h-3 w-3" />
-          {trend}
-        </div>
-      )}
     </motion.div>
   );
 }
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({ totalLeads: 0, emailsFound: 0 });
+  const [totalLeads, setTotalLeads] = useState(0);
+  const [emailsFound, setEmailsFound] = useState(0);
+  const [contactRate, setContactRate] = useState(0);
   const [countryData, setCountryData] = useState<any[]>([]);
   const [geoData, setGeoData] = useState<any>({});
   const [leads, setLeads] = useState<any[]>([]);
@@ -79,13 +86,18 @@ export default function Dashboard() {
         fetch(`${API}/dashboard/geo-data`).then((r) => r.json()),
         fetch(`${API}/leads`).then((r) => r.json()),
       ]);
-      setStats({
-        totalLeads: statsRes?.totalLeads || 0,
-        emailsFound: statsRes?.emailsFound || 0,
-      });
+
+      const leadsArr = Array.isArray(leadsRes) ? leadsRes : [];
+      setTotalLeads(statsRes?.totalLeads || leadsArr.length || 0);
+      setEmailsFound(statsRes?.emailsFound || 0);
       setCountryData(Array.isArray(countryRes) ? countryRes : []);
       setGeoData(geoRes || {});
-      setLeads(Array.isArray(leadsRes) ? leadsRes : []);
+      setLeads(leadsArr);
+
+      // Compute contact rate from leads (email or phone present)
+      const withContact = leadsArr.filter((l: any) => l.email || l.phone).length;
+      const rate = leadsArr.length > 0 ? Math.round((withContact / leadsArr.length) * 100) : 0;
+      setContactRate(rate);
     } catch (e) {
       console.error("Dashboard load error:", e);
     }
@@ -99,6 +111,10 @@ export default function Dashboard() {
         {[...Array(3)].map((_, i) => (
           <Skeleton key={i} className="h-32 rounded-2xl" />
         ))}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Skeleton className="h-40 rounded-2xl" />
+        <Skeleton className="h-40 rounded-2xl" />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Skeleton className="h-80 rounded-2xl" />
@@ -118,7 +134,7 @@ export default function Dashboard() {
             <StatusIndicator />
           </div>
           <p className="text-sm text-muted-foreground">
-            Your leads at a glance — updated live as you grow.
+            Here&apos;s your lead pipeline at a glance.
           </p>
         </div>
         <Link
@@ -126,7 +142,7 @@ export default function Dashboard() {
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition shadow-lg shadow-primary/20"
         >
           <Search className="h-4 w-4" />
-          Find Leads
+          Find New Leads
           <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
@@ -136,29 +152,32 @@ export default function Dashboard() {
         <StatCard
           icon={Users}
           label="Total Leads"
-          value={stats.totalLeads}
-          subtext="In your pipeline"
+          value={totalLeads}
+          subtext="Saved in your pipeline"
           gradient="from-indigo-500 to-indigo-600"
         />
         <StatCard
           icon={Mail}
           label="Emails Found"
-          value={stats.emailsFound}
-          subtext="Verified contacts"
+          value={emailsFound}
+          subtext="Verified email contacts"
           gradient="from-emerald-500 to-emerald-600"
         />
         <StatCard
           icon={Sparkles}
-          label="Lead Quality"
-          value="28%"
-          subtext="Outreach-ready score"
+          label="Contact Rate"
+          value={`${contactRate}%`}
+          subtext="Leads with email or phone"
           gradient="from-amber-500 to-orange-600"
         />
       </div>
 
-      {/* ═══════════ QUICK ACTIONS (ADVANCED) ═══════════ */}
+      {/* ═══════════ QUICK ACTIONS ═══════════ */}
       <div>
-        <h2 className="text-lg font-semibold text-foreground mb-3">Quick Actions</h2>
+        <div className="flex items-center gap-2 mb-3">
+          <Zap className="h-4 w-4 text-amber-500" />
+          <h2 className="text-lg font-semibold text-foreground">Quick Actions</h2>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Link
             href="/finder"
@@ -172,7 +191,7 @@ export default function Dashboard() {
               </div>
               <h3 className="text-lg font-bold">Find New Leads</h3>
               <p className="text-sm text-white/85 mt-1 max-w-[90%]">
-                Discover verified business and consumer prospects by niche and country.
+                Discover verified business prospects by niche and country.
               </p>
               <div className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-white/95 group-hover:gap-2.5 transition-all">
                 Get started <ArrowRight className="h-4 w-4" />
@@ -192,7 +211,7 @@ export default function Dashboard() {
               </div>
               <h3 className="text-lg font-bold">Local Insights</h3>
               <p className="text-sm text-white/85 mt-1 max-w-[90%]">
-                Find local businesses on Google Maps with verified contact details.
+                Find local businesses on Google Maps with verified contacts.
               </p>
               <div className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-white/95 group-hover:gap-2.5 transition-all">
                 Explore now <ArrowRight className="h-4 w-4" />
@@ -215,11 +234,13 @@ export default function Dashboard() {
         </div>
         <div className="rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-100 dark:border-indigo-900/50 p-6 flex flex-col items-center justify-center gap-3 text-center">
           <div className="p-3 rounded-xl bg-indigo-100 dark:bg-indigo-950/50">
-            <Sparkles className="h-6 w-6 text-indigo-600" />
+            <Activity className="h-6 w-6 text-indigo-600" />
           </div>
           <div>
             <p className="text-sm font-semibold text-foreground">Export All Leads</p>
-            <p className="text-xs text-muted-foreground mt-1">{leads.length} leads available</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {leads.length} {leads.length === 1 ? "lead" : "leads"} ready to download
+            </p>
           </div>
           <ExportMenu data={leads} filename="all-leads" />
         </div>
