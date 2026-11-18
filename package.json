@@ -1,6 +1,6 @@
 {
   "name": "leadconnect-frontend",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -40,7 +40,7 @@
     "tailwindcss-animate": "^1.0.7",
     "sonner": "^1.5.0",
     "d3-scale": "^4.0.2",
-    "@clerk/nextjs": "^5.7.0",
+    "@clerk/nextjs": "^6.9.0",
     "@clerk/themes": "^2.2.0"
   },
   "devDependencies": {
