@@ -1,6 +1,6 @@
 {
   "name": "leadconnect-frontend",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "14.2.5",
+    "next": "^14.2.25",
     "react": "^18",
     "react-dom": "^18",
     "recharts": "^2.9.0",
