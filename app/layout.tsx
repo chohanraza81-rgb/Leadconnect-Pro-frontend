@@ -25,12 +25,6 @@ export const metadata: Metadata = {
     'email finder',
     'local business leads',
   ],
-  authors: [{ name: 'LeadConnect Pro' }],
-  openGraph: {
-    title: 'LeadConnect Pro — Find Leads. Close Deals.',
-    description: 'AI-powered B2B lead generation tool.',
-    type: 'website',
-  },
 };
 
 export default function RootLayout({
@@ -39,27 +33,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider
-      dynamic
-      appearance={{
-        variables: {
-          colorPrimary: '#4f46e5',
-          borderRadius: '0.75rem',
-        },
-      }}
-    >
-      <html lang="en" suppressHydrationWarning>
-        <body
-          className={`${inter.variable} font-sans antialiased`}
-          style={{
-            backgroundColor: 'hsl(var(--background))',
-            color: 'hsl(var(--foreground))',
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={`${inter.variable} font-sans antialiased`}
+        style={{
+          backgroundColor: 'hsl(var(--background))',
+          color: 'hsl(var(--foreground))',
+        }}
+      >
+        <ClerkProvider
+          dynamic
+          appearance={{
+            variables: {
+              colorPrimary: '#4f46e5',
+              borderRadius: '0.75rem',
+            },
           }}
         >
           {children}
           <Toaster position="top-right" richColors closeButton />
-        </body>
-      </html>
-    </ClerkProvider>
+        </ClerkProvider>
+      </body>
+    </html>
   );
 }
