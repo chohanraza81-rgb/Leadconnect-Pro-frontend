@@ -2,7 +2,7 @@
 import { NextFetchEvent, NextRequest, NextResponse } from "next/server";
 
 const runClerkMiddleware = async (req: NextRequest, event: NextFetchEvent) => {
-  // ✅ Dynamic import — env vars request time par load honge
+  // ✅ Dynamic import — Netlify env vars request time par load honge
   const { clerkMiddleware, createRouteMatcher } = await import("@clerk/nextjs/server");
 
   const isPublicRoute = createRouteMatcher([
@@ -13,7 +13,8 @@ const runClerkMiddleware = async (req: NextRequest, event: NextFetchEvent) => {
 
   const middleware = clerkMiddleware(async (auth, req) => {
     if (!isPublicRoute(req)) {
-      await auth.protect();
+      // ✅ v5 syntax: auth() call karke protect()
+      auth().protect();
     }
   });
 
@@ -25,7 +26,6 @@ export default async (req: NextRequest, event: NextFetchEvent) => {
     return await runClerkMiddleware(req, event);
   } catch (e) {
     console.error("[middleware] Clerk failed:", e);
-    // Agar Clerk crash ho jaye to request ko block na karein
     return NextResponse.next();
   }
 };
