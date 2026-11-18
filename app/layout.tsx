@@ -1,7 +1,7 @@
 // app/layout.tsx
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import { ClerkProvider } from '@clerk/nextjs';   // 👈 import
+import { ClerkProvider } from '@clerk/nextjs';
 import './globals.css';
 import { Toaster } from 'sonner';
 
@@ -18,11 +18,29 @@ export const metadata: Metadata = {
   },
   description:
     'AI-powered B2B lead generation tool. Find verified business leads, discover local insights, and grow your agency faster.',
+  keywords: [
+    'lead generation',
+    'B2B leads',
+    'SEO agency',
+    'email finder',
+    'local business leads',
+  ],
+  authors: [{ name: 'LeadConnect Pro' }],
+  openGraph: {
+    title: 'LeadConnect Pro — Find Leads. Close Deals.',
+    description: 'AI-powered B2B lead generation tool.',
+    type: 'website',
+  },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <ClerkProvider
+      dynamic
       appearance={{
         variables: {
           colorPrimary: '#4f46e5',
