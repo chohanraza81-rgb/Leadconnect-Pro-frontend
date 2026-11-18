@@ -1,6 +1,7 @@
 // app/layout.tsx
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import { ClerkProvider } from '@clerk/nextjs';   // 👈 import
 import './globals.css';
 import { Toaster } from 'sonner';
 
@@ -21,17 +22,26 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${inter.variable} font-sans antialiased`}
-        style={{
-          backgroundColor: 'hsl(var(--background))',
-          color: 'hsl(var(--foreground))',
-        }}
-      >
-        {children}
-        <Toaster position="top-right" richColors closeButton />
-      </body>
-    </html>
+    <ClerkProvider
+      appearance={{
+        variables: {
+          colorPrimary: '#4f46e5',
+          borderRadius: '0.75rem',
+        },
+      }}
+    >
+      <html lang="en" suppressHydrationWarning>
+        <body
+          className={`${inter.variable} font-sans antialiased`}
+          style={{
+            backgroundColor: 'hsl(var(--background))',
+            color: 'hsl(var(--foreground))',
+          }}
+        >
+          {children}
+          <Toaster position="top-right" richColors closeButton />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
