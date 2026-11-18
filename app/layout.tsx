@@ -18,13 +18,6 @@ export const metadata: Metadata = {
   },
   description:
     'AI-powered B2B lead generation tool. Find verified business leads, discover local insights, and grow your agency faster.',
-  keywords: [
-    'lead generation',
-    'B2B leads',
-    'SEO agency',
-    'email finder',
-    'local business leads',
-  ],
 };
 
 export default function RootLayout({
@@ -43,6 +36,7 @@ export default function RootLayout({
       >
         <ClerkProvider
           dynamic
+          afterSignOutUrl="/sign-in"     {/* 👈 GLOBAL SIGN-OUT REDIRECT */}
           appearance={{
             variables: {
               colorPrimary: '#4f46e5',
