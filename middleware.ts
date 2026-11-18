@@ -1,8 +1,7 @@
-// middleware.ts (frontend/middleware.ts — root level)
+// middleware.ts
 import { NextFetchEvent, NextRequest, NextResponse } from "next/server";
 
 const runClerkMiddleware = async (req: NextRequest, event: NextFetchEvent) => {
-  // ✅ Dynamic import — Netlify env vars request time par load honge
   const { clerkMiddleware, createRouteMatcher } = await import("@clerk/nextjs/server");
 
   const isPublicRoute = createRouteMatcher([
@@ -13,8 +12,7 @@ const runClerkMiddleware = async (req: NextRequest, event: NextFetchEvent) => {
 
   const middleware = clerkMiddleware(async (auth, req) => {
     if (!isPublicRoute(req)) {
-      // ✅ v5 syntax: auth() call karke protect()
-      auth().protect();
+      await auth.protect();   // ✅ v6 syntax
     }
   });
 
